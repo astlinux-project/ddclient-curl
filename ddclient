@@ -3,10 +3,14 @@
 #
 # DDCLIENT - a Perl client for updating DynDNS information
 #
-# Author: Paul Burry (paul+ddclient@burry.ca)
-# ddclient-developers: see https://sourceforge.net/project/memberlist.php?group_id=116817
+# ddclient-curl - Fork of ddclient using curl for network IO
+# Author: David Kerr, et al.
+# website: https://github.com/astlinux-project/ddclient-curl
 #
-# website: http://ddclient.sf.net
+# Current ddclient Maintainer: wimpunk https://github.com/wimpunk
+# website: https://github.com/wimpunk/ddclient
+#
+# Original Author: Paul Burry (paul+ddclient@burry.ca)
 #
 # Support for multiple IP numbers added by
 # Astaro AG, Ingo Schwarze <ischwarze-OOs/4mkCeqbQT0dZR+AlfA@public.gmane.org> September 16, 2008
@@ -15,7 +19,6 @@
 #
 # Initial Cloudflare support by Ian Pye, updated by Robert Ian Hawdon 2012-07-16
 # Further updates by Peter Roberts to support the new API 2013-09-26, 2014-06-22: http://blog.peter-r.co.uk/
-#
 #
 ######################################################################
 require 5.004;
