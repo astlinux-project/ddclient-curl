@@ -2175,28 +2175,47 @@ sub geturl {
 	}
 	$0 = sprintf("%s - closed %s port %s", $program, $peer, $port);
 
-    } else
-    {
+    } else {
         # Access network using cURL.
-        my $curlopt = '';
-        my $protocol = 'http';
-        $curlopt = '--ipv4' if ($ipversion eq '4');
-        $curlopt = '--ipv6' if ($ipversion eq '6');
-        if ($use_ssl) {
-            $protocol = 'https';
-            $curlopt .= ' --insecure';
-        }
-
         if (! opt('exec')) {
 	    debug("skipped network connection");
-	    verbose("SENDING:", "%s", '${protocol}://${server}/${url}');
-        } else
-        {
-            $0 = sprintf("%s - curl sending to %s", $program, '${protocol}://${server}/${url}');
+	    verbose("SENDING:", "%s", "${server}/${url}");
+        } elsif (($headers ne '')) {
             my $timeout = opt('timeout');
+            my @head_lines = split('\n', $headers);
+            my $head_args = '';
+            foreach my $head_line (@head_lines) {
+              $head_args .= "-H '$head_line' ";
+            }
+
+            $0 = sprintf("%s - curl (w/headers) sending to %s", $program, "https://${server}/${url}");
+
+            $reply = <<`USE_CURL_WITH_HEADERS`;
+/usr/bin/curl -si0 -X $method --user-agent '${program}/${version}' \\
+              --connect-timeout $timeout --max-time $timeout \\
+              ${head_args} \\
+              --data '${data}' \\
+              --url 'https://${server}/${url}' 2>/dev/null
+USE_CURL_WITH_HEADERS
+
+            if (! $reply) {
+                warning("curl (w/headers) cannot connect to https://${server}/${url}");
+            }
+        } else {
+            my $timeout = opt('timeout');
+            my $curlopt = '';
+            my $protocol = 'http';
+            $curlopt = '--ipv4' if ($ipversion eq '4');
+            $curlopt = '--ipv6' if ($ipversion eq '6');
+            if ($use_ssl) {
+                $protocol = 'https';
+                $curlopt .= ' --insecure';
+            }
+
+            $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}/${url}");
 
             $reply = <<`USE_CURL`;
-              /usr/bin/curl -si0 --user '${login}:${password}' --user-agent '${program}/${version}' \\
+/usr/bin/curl -si0 --user '${login}:${password}' --user-agent '${program}/${version}' \\
               --connect-timeout $timeout --max-time $timeout $curlopt \\
               --url '${protocol}://${server}/${url}' 2>/dev/null
 USE_CURL
