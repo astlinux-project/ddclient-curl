@@ -22,7 +22,6 @@ require 5.004;
 use strict;
 use Getopt::Long;
 use Sys::Hostname;
-use IO::Socket;
 
 my $version  = "3.8.3-01";
 my $programd  = $0; 
@@ -367,7 +366,6 @@ my %variables = (
 	'retry'               => setv(T_BOOL,  0, 0, 0, 0,                    undef),
 	'force'               => setv(T_BOOL,  0, 0, 0, 0,                    undef),
 	'ssl'                 => setv(T_BOOL,  0, 0, 0, 0,                    undef),
-	'curl'                => setv(T_BOOL,  0, 0, 0, 0,                    undef),
 
 	'syslog'              => setv(T_BOOL,  0, 0, 1, 0,                    undef),
 	'facility'            => setv(T_STRING,0, 0, 1, 'daemon',             undef),
@@ -755,7 +753,6 @@ my @opt = (
     [ "options",     "=s",  "-options opt,opt     : optional per-service arguments (see below)" ],
     "",			     
     [ "ssl",         "!",  "-{no}ssl              : do updates over encrypted SSL connection" ],
-    [ "curl",        "!",  "-{no}curl             : use cURL for network connections (default nocurl)" ],
     [ "retry",       "!",  "-{no}retry            : retry failed updates." ],
     [ "force",       "!",  "-{no}force            : force an update even if the update may be unnecessary" ],
     [ "timeout",     "=i", "-timeout max          : wait at most 'max' seconds for the host to respond" ],
@@ -1980,40 +1977,6 @@ sub encode_base64 ($;$) {
     $res;
 }
 ######################################################################
-## load_ssl_support
-######################################################################
-sub load_ssl_support {
-    my $ssl_loaded = eval {require IO::Socket::SSL};
-    unless ($ssl_loaded) {
-        fatal(<<"EOM");
-Error loading the Perl module IO::Socket::SSL needed for SSL connect.
-On Debian, the package libio-socket-ssl-perl must be installed.
-On Red Hat, the package perl-IO-Socket-SSL must be installed.
-On Alpine, the package perl-io-socket-ssl must be installed.
-EOM
-    }
-    import  IO::Socket::SSL;
-    { no warnings; $IO::Socket::SSL::DEBUG = 0; }
-}
-
-######################################################################
-## load_ipv6_support
-######################################################################
-sub load_ipv6_support {
-    my $ipv6_loaded = eval {require IO::Socket::INET6};
-    unless ($ipv6_loaded) {
-        fatal(<<"EOM");
-Error loading the Perl module IO::Socket::INET6 needed for ipv6 connect.
-On Debian, the package libio-socket-inet6-perl must be installed.
-On Red Hat, the package perl-IO-Socket-INET6 must be installed.
-On Alpine, the package perl-io-socket-inet6 must be installed.
-EOM
-    }
-    import IO::Socket::INET6;
-    { no warnings; $IO::Socket::INET6::DEBUG = 0; }
-}
-
-######################################################################
 ## load_sha1_support
 ######################################################################
 sub load_sha1_support {
@@ -2055,8 +2018,7 @@ sub geturl {
     my $method   = shift || 'GET';
     my $data     = shift || '';
     my $ipversion  = shift || '';
-    my ($peer, $server, $port, $default_port, $use_ssl);
-    my ($sd, $rq, $request, $reply);
+    my ($reply, $server, $default_port, $use_ssl);
 
     debug("proxy  = $proxy");
     debug("url    = %s", $url);
@@ -2074,7 +2036,7 @@ sub geturl {
     debug("server = $server");
     opt('fw') && debug("opt(fw = ",opt('fw'),")");
     $globals{'fw'} && debug("glo fw = $globals{'fw'}"); 
-    #if ( $globals{'ssl'} and $server ne $globals{'fw'} ) {
+    #if ( $globals{'ssl'} and $server ne $globals{'fw'} )
     ## always omit SSL for connections to local router
     if ( $force_ssl || ($globals{'ssl'} and (caller(1))[3] ne 'main::get_ip') ) {
         $use_ssl      = 1;
@@ -2084,113 +2046,21 @@ sub geturl {
         $default_port = 80;
     }
    
-    if ( (!opt('curl')) and ($ipversion ne '6') ) {
-        # Access network using perl functions.
-        ## determine peer and port to use.
-        $peer   = $proxy || $server;
-        $peer   =~ s%/.*%%;
-        $port   = $peer;
-        $port   =~ s%^.*:%%;
-        $port   = $default_port unless $port =~ /^\d+$/;
-        $peer   =~ s%:.*$%%;
-  
-        my $to =  sprintf "%s%s", $server, $proxy ? " via proxy $peer:$port" : "";
-        verbose("CONNECT:", "%s", $to);
-
-        $request  = "$method ";
-        $request .= "http://$server" if $proxy;
-        $request .= "/$url HTTP/1.0\n";
-        $request .= "Host: $server\n";
-
-        my $auth = encode_base64("${login}:${password}", "");
-        $request .= "Authorization: Basic $auth\n" if $login || $password;
-        $request .= "User-Agent: ${program}/${version}\n";
-        $request .= "Connection: close\n";
-        $request .= "$headers\n";
-        $request .= "Content-Length: ".length($data)."\n" if $data;
-        $request .= "\n";
-        $request .= $data;
-
-        ## make sure newlines are <cr><lf> for some pedantic proxy servers
-        ($rq = $request) =~ s/\n/\r\n/g;
-
-        # local $^W = 0;
-        $0 = sprintf("%s - connecting to %s port %s", $program, $peer, $port);
-        if (! opt('exec')) {
-	       debug("skipped network connection");
-	       verbose("SENDING:", "%s", $request);
-        } elsif ($use_ssl) {
-		load_ssl_support;
-	        $sd = IO::Socket::SSL->new(
-                PeerAddr => $peer,
-                PeerPort => $port,
-                Proto => 'tcp',
-                MultiHomed => 1,
-                Timeout => opt('timeout'),
-            );
-	    defined $sd or warning("cannot connect to $peer:$port socket: $@ " . IO::Socket::SSL::errstr());
-
-        } else {
-	        $sd = IO::Socket::INET->new(
-                PeerAddr => $peer,
-                PeerPort => $port,
-                Proto => 'tcp',
-                MultiHomed => 1,
-                Timeout => opt('timeout'),
-            );
-	        defined $sd or warning("cannot connect to $peer:$port socket: $@");
+    # Access network using cURL.
+    if (! opt('exec')) {
+        debug("skipped network connection");
+        verbose("SENDING:", "%s", "${server}/${url}");
+    } elsif (($headers ne '')) {
+        my $timeout = opt('timeout');
+        my @head_lines = split('\n', $headers);
+        my $head_args = '';
+        foreach my $head_line (@head_lines) {
+          $head_args .= "-H '$head_line' ";
         }
 
-	if (defined $sd) {
-		## send the request to the http server
-		verbose("CONNECTED: ", $use_ssl ? 'using SSL' : 'using HTTP');
-		verbose("SENDING:", "%s", $request);
+        $0 = sprintf("%s - curl (w/headers) sending to %s", $program, "https://${server}/${url}");
 
-		$0 = sprintf("%s - sending to %s port %s", $program, $peer, $port);
-		my $result = syswrite $sd, $rq;
-		if ($result != length($rq)) {
-			warning("cannot send to $peer:$port ($!).");
-		} else {
-			$0 = sprintf("%s - reading from %s port %s", $program, $peer, $port);
-			eval {
-				local $SIG{'ALRM'} = sub { die "timeout";};
-				alarm(opt('timeout')) if opt('timeout') > 0;
-				while ($_ = <$sd>) {
-					$0 = sprintf("%s - read from %s port %s", $program, $peer, $port);
-					verbose("RECEIVE:", "%s", define($_, "<undefined>"));
-					$reply .= $_ if defined $_;
-				}
-				if (opt('timeout') > 0) {
-					alarm(0);
-				}
-			};
-			close($sd);
-
-			if ($@ and $@ =~ /timeout/) {
-				warning("TIMEOUT: %s after %s seconds", $to, opt('timeout'));
-				$reply = '';
-			}
-			$reply = '' if !defined $reply;
-		}
-	}
-	$0 = sprintf("%s - closed %s port %s", $program, $peer, $port);
-
-    } else {
-        # Access network using cURL.
-        if (! opt('exec')) {
-	    debug("skipped network connection");
-	    verbose("SENDING:", "%s", "${server}/${url}");
-        } elsif (($headers ne '')) {
-            my $timeout = opt('timeout');
-            my @head_lines = split('\n', $headers);
-            my $head_args = '';
-            foreach my $head_line (@head_lines) {
-              $head_args .= "-H '$head_line' ";
-            }
-
-            $0 = sprintf("%s - curl (w/headers) sending to %s", $program, "https://${server}/${url}");
-
-            $reply = <<`USE_CURL_WITH_HEADERS`;
+        $reply = <<`USE_CURL_WITH_HEADERS`;
 /usr/bin/curl -si0 -X $method --user-agent '${program}/${version}' \\
               --connect-timeout $timeout --max-time $timeout \\
               ${head_args} \\
@@ -2198,44 +2068,42 @@ sub geturl {
               --url 'https://${server}/${url}' 2>/dev/null
 USE_CURL_WITH_HEADERS
 
-            if (! $reply) {
-                warning("curl (w/headers) cannot connect to https://${server}/${url}");
-            }
-        } else {
-            my $timeout = opt('timeout');
-            my $curlopt = '';
-            my $protocol = 'http';
-            $curlopt = '--ipv4' if ($ipversion eq '4');
-            $curlopt = '--ipv6' if ($ipversion eq '6');
-            if ($use_ssl) {
-                $protocol = 'https';
-                $curlopt .= ' --insecure';
-            }
+        if (! $reply) {
+            warning("curl (w/headers) cannot connect to https://${server}/${url}");
+        }
+    } else {
+        my $timeout = opt('timeout');
+        my $curlopt = '';
+        my $protocol = 'http';
+        $curlopt = '--ipv4' if ($ipversion eq '4');
+        $curlopt = '--ipv6' if ($ipversion eq '6');
+        if ($use_ssl) {
+            $protocol = 'https';
+            $curlopt .= ' --insecure';
+        }
 
-            $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}/${url}");
+        $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}/${url}");
 
-            $reply = <<`USE_CURL`;
+        $reply = <<`USE_CURL`;
 /usr/bin/curl -si0 --user '${login}:${password}' --user-agent '${program}/${version}' \\
               --connect-timeout $timeout --max-time $timeout $curlopt \\
               --url '${protocol}://${server}/${url}' 2>/dev/null
 USE_CURL
 
-            if (! $reply) {
-                warning("curl cannot connect to ${protocol}://${server}/${url}");
-            }
+        if (! $reply) {
+            warning("curl cannot connect to ${protocol}://${server}/${url}");
         }
     }
 
-
     ## during testing simulate reading the URL
     if (opt('test')) {
-	my $filename = "$server/$url";
-	$filename =~ s|/|%2F|g;
-	if (opt('exec')) {
-	    $reply = save_file("${savedir}$filename", $reply, 'unique');
-	} else {
-	    $reply = load_file("${savedir}$filename");
-	}
+        my $filename = "$server/$url";
+        $filename =~ s|/|%2F|g;
+        if (opt('exec')) {
+            $reply = save_file("${savedir}$filename", $reply, 'unique');
+        } else {
+            $reply = load_file("${savedir}$filename");
+        }
     }
 
     $reply =~ s/\r//g if defined $reply;
