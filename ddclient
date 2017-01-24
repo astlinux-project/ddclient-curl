@@ -2035,13 +2035,13 @@ EOM
 ## load_json_support
 ######################################################################
 sub load_json_support {
-	my $json_loaded = eval {require JSON::Any};
+	my $json_loaded = eval {require JSON::PP};
 	unless ($json_loaded) {
 		fatal(<<"EOM");
-Error loading the Perl module JSON::Any needed for cloudflare update.
+Error loading the Perl module JSON::PP needed for cloudflare update.
 EOM
 	}
-	import JSON::Any;
+	import JSON::PP (qw/decode_json/);
 }
 ######################################################################
 ## geturl
@@ -4560,9 +4560,9 @@ sub nic_cloudflare_update {
 
 			# Strip header
 			$reply =~ s/^.*?\n\n//s;
-			my $response = JSON::Any->jsonToObj($reply);
-			if ($response->{result} eq 'error') {
-				failed ("%s", $response->{msg});
+			my $response = eval {decode_json($reply)};
+			if (!defined $response || !defined $response->{result}) {
+				failed ("invalid json or result.");
 				next; 
 			}
 
@@ -4587,9 +4587,9 @@ sub nic_cloudflare_update {
 
 			# Strip header
 			$reply =~ s/^.*?\n\n//s;
-			$response = JSON::Any->jsonToObj($reply);
-			if ($response->{result} eq 'error') {
-				failed ("%s", $response->{msg});
+			$response = eval {decode_json($reply)};
+			if (!defined $response || !defined $response->{result}) {
+				failed ("invalid json or result.");
 				next; 
 			}
 
@@ -4613,9 +4613,9 @@ sub nic_cloudflare_update {
 
 			# Strip header
 			$reply =~ s/^.*?\n\n//s;
-			$response = JSON::Any->jsonToObj($reply);
-			if ($response->{result} eq 'error') {
-				failed ("%s", $response->{msg});	
+			$response = eval {decode_json($reply)};
+			if (!defined $response || !defined $response->{result}) {
+				failed ("invalid json or result.");
 			} else {
 				success ("%s -- Updated Successfully to %s", $domain, $ip);
 
