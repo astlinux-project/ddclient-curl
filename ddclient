@@ -2022,6 +2022,7 @@ sub geturl {
     my $data     = shift || '';
     my $ipversion  = shift || '';
     my ($reply, $server, $default_port, $use_ssl);
+    my $is_get_ip = ((caller(1))[3] eq 'main::get_ip') || ((caller(1))[3] eq 'main::get_ipv6');
 
     debug("proxy  = $proxy");
     debug("url    = %s", $url);
@@ -2041,7 +2042,7 @@ sub geturl {
     $globals{'fw'} && debug("glo fw = $globals{'fw'}"); 
     #if ( $globals{'ssl'} and $server ne $globals{'fw'} )
     ## always omit SSL for connections to local router
-    if ( $force_ssl || ($globals{'ssl'} and (caller(1))[3] ne 'main::get_ip') ) {
+    if ( $force_ssl || ($globals{'ssl'} && !$is_get_ip) ) {
         $use_ssl      = 1;
         $default_port = 443;
     } else {
@@ -2084,11 +2085,14 @@ USE_CURL_WITH_HEADERS
             $protocol = 'https';
             $curlopt .= ' --insecure';
         }
+        if (!$is_get_ip) {
+            $curlopt .= ' --include';
+        }
 
         $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}/${url}");
 
         $reply = <<`USE_CURL`;
-/usr/bin/curl -si0 --user '${login}:${password}' --user-agent '${program}/${version}' \\
+/usr/bin/curl -s0 --user '${login}:${password}' --user-agent '${program}/${version}' \\
               --connect-timeout $timeout --max-time $timeout $curlopt \\
               --url '${protocol}://${server}/${url}' 2>/dev/null
 USE_CURL
