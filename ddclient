@@ -2324,7 +2324,11 @@ sub get_ipv6 {
     }
 
     # Extract IPv6 address from the text
-    $ipv6 = $& if ($reply =~ /(?i)(?<![:.\w])(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}(?![:.\w])/);
+    if ($reply =~ /(?i)(?<![:.\w])(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}(?![:.\w])/) {
+        $ipv6 = $&;
+    } elsif ($reply =~ /.*?\b([a-f0-9][a-f0-9:]+[a-f0-9])\b.*/is) {
+        $ipv6 = $1;
+    }
 
     if (($usev6 ne 'ip') && (define($ipv6,'') eq '::')) {
         $ipv6 = undef;
