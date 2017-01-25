@@ -2065,7 +2065,7 @@ sub geturl {
         $0 = sprintf("%s - curl (w/headers) sending to %s", $program, "https://${server}/${url}");
 
         $reply = <<`USE_CURL_WITH_HEADERS`;
-/usr/bin/curl -si0 -X $method --user-agent '${program}/${version}' \\
+/usr/bin/curl -s -X $method --user-agent '${program}/${version}' \\
               --connect-timeout $timeout --max-time $timeout \\
               ${head_args} \\
               --data '${data}' \\
@@ -4452,10 +4452,7 @@ sub nic_cloudflare_update {
 				failed("updating %s: Could not connect to %s.", $domain, $config{$key}{'server'});
 				last;
 			}
-			last if !header_ok($domain, $reply);
 
-			# Strip header
-			$reply =~ s/^.*?\n\n//s;
 			my $response = eval {decode_json($reply)};
 			if (!defined $response || !defined $response->{result}) {
 				failed ("invalid json or result.");
@@ -4479,10 +4476,7 @@ sub nic_cloudflare_update {
 				failed("updating %s: Could not connect to %s.", $domain, $config{$key}{'server'});
 				last;
 			}
-			last if !header_ok($domain, $reply);
 
-			# Strip header
-			$reply =~ s/^.*?\n\n//s;
 			$response = eval {decode_json($reply)};
 			if (!defined $response || !defined $response->{result}) {
 				failed ("invalid json or result.");
@@ -4505,10 +4499,7 @@ sub nic_cloudflare_update {
 				failed("updating %s: Could not connect to %s.", $domain, $config{$domain}{'server'});
 				last;
 			}
-			last if !header_ok($domain, $reply);
 
-			# Strip header
-			$reply =~ s/^.*?\n\n//s;
 			$response = eval {decode_json($reply)};
 			if (!defined $response || !defined $response->{result}) {
 				failed ("invalid json or result.");
