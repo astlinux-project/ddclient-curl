@@ -20,10 +20,8 @@ Requirements:
 - An account from one of the supported DNS services
 
 - Perl 5.014 or later
-
-..* JSON::PP perl library for JSON support (Cloudflare)
-
-..* Digest::SHA perl library for SHA1 support (FreeDNS)
+  * JSON::PP perl library for JSON support (Cloudflare)
+  * Digest::SHA perl library for SHA1 support (FreeDNS)
 
 - 'curl' from the libcurl package
 
