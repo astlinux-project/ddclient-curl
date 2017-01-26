@@ -2085,9 +2085,6 @@ USE_CURL_WITH_HEADERS
             $protocol = 'https';
             $curlopt .= ' --insecure';
         }
-        if (!$is_get_ip) {
-            $curlopt .= ' --include';
-        }
 
         $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}/${url}");
 
@@ -2565,28 +2562,6 @@ sub nic_updateable {
 }
 
 ######################################################################
-## header_ok
-######################################################################
-sub header_ok {
-    my ($host, $line) = @_;
-    my $ok = 0;
-
-    if ($line =~ m%^s*HTTP/1.*\s+(\d+)%i) {
-	my $result = $1;
-
-	if ($result eq '200') {
-	    $ok = 1;
-
-	} elsif ($result eq '401') {
-	    failed("updating %s: authorization failed (%s)", $host, $line);
-	}
-	
-    } else {
-	failed("updating %s: unexpected line (%s)", $host, $line);
-    }
-    return $ok;
-}
-######################################################################
 ## nic_dyndns1_examples
 ######################################################################
 sub nic_dyndns1_examples {
@@ -2651,7 +2626,6 @@ sub nic_dyndns1_update {
 	    failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
 	    next;
 	}
-	last if !header_ok($h, $reply);
 
 	my @reply = split /\n/, $reply;
 	my ($title, $return_code, $error_code) = ('','','');
@@ -2818,28 +2792,18 @@ sub nic_dyndns2_update {
 	    failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'});
 	    last;
 	}
-	last if !header_ok($hosts, $reply);
 
 	my @reply = split /\n/, $reply;
-	my $state = 'header';
 	my $returnedip = $ip;
 
 	foreach my $line (@reply) {
-	    if ($state eq 'header') {
-		$state = 'body';
-	    
-	    } elsif ($state eq 'body') {
-		$state = 'results' if $line eq '';
-	    
-	    } elsif ($state =~ /^results/) {
-		$state = 'results2';
 
 		# bug #10: some dyndns providers does not return the IP so
 		# we can't use the returned IP
 		my ($status, $returnedip) = split / /, lc $line;
 		$ip = $returnedip if (not $ip);
 		my $h = shift @hosts;
-	    
+
 		$config{$h}{'status'} = $status;
 		if ($status eq 'good') {
 		    $config{$h}{'ip'}     = $ip;
@@ -2872,10 +2836,7 @@ sub nic_dyndns2_update {
 		} else {
 		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
 		} 	
-	    }
 	}
-	failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'})
-	    if $state ne 'results2';
     }
 }
 
@@ -2923,23 +2884,13 @@ sub nic_noip_update {
 	    failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'});
 	    last;
 	}
-	last if !header_ok($hosts, $reply);
 
 	my @reply = split /\n/, $reply;
-	my $state = 'header';
 	foreach my $line (@reply) {
-	    if ($state eq 'header') {
-		$state = 'body';
-	    
-	    } elsif ($state eq 'body') {
-		$state = 'results' if $line eq '';
-	    
-	    } elsif ($state =~ /^results/) {
-		$state = 'results2';
 
 		my ($status, $ip) = split / /, lc $line;
 		my $h = shift @hosts;
-	    
+
 		$config{$h}{'status'} = $status;
 		if ($status eq 'good') {
 		    $config{$h}{'ip'}     = $ip;
@@ -2972,10 +2923,7 @@ sub nic_noip_update {
 		} else {
 		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
 		} 	
-	    }
 	}
-	failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'})
-	    if $state ne 'results2';
     }
 }
 ######################################################################
@@ -3074,7 +3022,6 @@ sub nic_concont_update {
             failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
             last;
         }
-        last if !header_ok($h, $reply);
 
         # Response found, just declare as success (this is ugly, we need more error checking)
         if ($reply =~ /SUCCESS/)
@@ -3220,7 +3167,6 @@ sub nic_hammernode1_update {
 	    failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
 	    last;
 	}
-	last if !header_ok($h, $reply);
 	
 	my @reply = split /\n/, $reply;
 	if (grep /<!--\s+DDNS_Response_Code=101\s+-->/i, @reply) {
@@ -3310,7 +3256,6 @@ sub nic_zoneedit1_update {
 	    failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'});
 	    last;
 	}
-	last if !header_ok($hosts, $reply);
 
 	my @reply = split /\n/, $reply;
 	foreach my $line (@reply) {
@@ -3343,8 +3288,6 @@ sub nic_zoneedit1_update {
 		redo if $line;
 	    }
 	}
-	failed("updating %s: no response from %s", $hosts, $config{$h}{'server'})
-	      if @hosts;
     }
 }	
 ######################################################################
@@ -3463,23 +3406,13 @@ sub nic_easydns_update {
 	    failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'});
 	    last;
 	}
-	last if !header_ok($hosts, $reply);
 	
 	my @reply = split /\n/, $reply;
-	my $state = 'header';
 	foreach my $line (@reply) {
-	    if ($state eq 'header') {
-		$state = 'body';
-	    
-	    } elsif ($state eq 'body') {
-		$state = 'results' if $line eq '';
-	    
-	    } elsif ($state =~ /^results/) {
-		$state = 'results2';
 
 		my ($status) = $line =~ /^(\S*)\b.*/;
 		my $h = shift @hosts;
-	    
+
 		$config{$h}{'status'} = $status;
 		if ($status eq 'NOERROR') {
 		    $config{$h}{'ip'}     = $ip;
@@ -3504,10 +3437,7 @@ sub nic_easydns_update {
 		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
 		} 	
 		last;
-	    }
 	}
-	failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'})
-	    if $state ne 'results2';
     }
 }	
 ######################################################################
@@ -3622,23 +3552,13 @@ sub nic_dnspark_update {
 	    failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'});
 	    last;
 	}
-	last if !header_ok($hosts, $reply);
 	
 	my @reply = split /\n/, $reply;
-	my $state = 'header';
 	foreach my $line (@reply) {
-	    if ($state eq 'header') {
-		$state = 'body';
-	    
-	    } elsif ($state eq 'body') {
-		$state = 'results' if $line eq '';
-	    
-	    } elsif ($state =~ /^results/) {
-		$state = 'results2';
 
 		my ($status) = $line =~ /^(\S*)\b.*/;
 		my $h = pop @hosts;
-	    
+
 		$config{$h}{'status'} = $status;
 		if ($status eq 'ok') {
 		    $config{$h}{'ip'}     = $ip;
@@ -3663,10 +3583,7 @@ sub nic_dnspark_update {
 		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
 		} 	
 		last;
-	    }
 	}
-	failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'})
-	    if $state ne 'results2';
     }
 }	
 
@@ -3736,7 +3653,6 @@ sub nic_namecheap_update {
             failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
             last;
         }
-        last if !header_ok($h, $reply);
 
         my @reply = split /\n/, $reply;
         if (grep /<ErrCount>0/i, @reply) {
@@ -3819,7 +3735,6 @@ sub nic_sitelutions_update {
             failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
             last;
         }
-        last if !header_ok($h, $reply);
 
         my @reply = split /\n/, $reply;
         if (grep /success/i, @reply) {
@@ -3884,7 +3799,7 @@ sub nic_freedns_update {
     # note, use '&v=2' in $url in order to pull IPv6 AAAA records as well as IPv4 A records
     $url = "http://$config{$_[0]}{'server'}/api/?action=getdyndns&v=2&sha=".&sha1_hex("$config{$_[0]}{'login'}|$config{$_[0]}{'password'}");
     my $reply = geturl(opt('proxy'), $url);
-    if (!defined($reply) || !$reply || !header_ok($_[0], $reply)) {
+    if (!defined($reply) || !$reply) {
         failed("updating %s: Could not connect to %s for site list.", $_[0], $url);
 	return;
     }
@@ -3932,10 +3847,6 @@ sub nic_freedns_update {
                     failed("updating %s: Could not connect to %s.", $h, $freedns_hosts{$h}->[2]);
                     last;
                 }
-                if(!header_ok($h, $reply)) {
-                    $config{$h}{'status'} = 'failed';
-                    last;
-                }
 
             if ($reply =~ /Updated.*$h.*to.*$ip/) {
                 $config{$h}{'ip'}     = $ip;
@@ -3967,10 +3878,6 @@ sub nic_freedns_update {
                 my $reply = geturl(opt('proxy'), $freedns_hosts_ipv6{$h}->[2]."&address=".$ipv6);
                 if (!defined($reply) || !$reply) {
                     failed("updating %s: Could not connect to %s.", $h, $freedns_hosts_ipv6{$h}->[2]);
-                    last;
-                }
-                if(!header_ok($h, $reply)) {
-                    $config{$h}{'status'} = 'failed';
                     last;
                 }
 
@@ -4052,7 +3959,6 @@ sub nic_changeip_update {
             failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
             last;
         }
-        last if !header_ok($h, $reply);
 
         my @reply = split /\n/, $reply;
         if (grep /success/i, @reply) {
@@ -4130,7 +4036,6 @@ sub nic_dtdns_update {
             failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
             last;
         }
-        last if !header_ok($h, $reply);
 
         # Response found, just declare as success (this is ugly, we need more error checking)
         if ($reply =~ /now\spoints\sto/)
@@ -4216,7 +4121,6 @@ sub nic_googledomains_update {
         failed("updating %s: Could not connect to %s.", $host, $config{$host}{'server'});
         last;
       }
-      last if !header_ok($host, $reply);
 
       # Cache
       $config{$host}{'ip'}     = $ip;
@@ -4577,7 +4481,6 @@ sub nic_duckdns_update {
             failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
             last;
         }
-        last if !header_ok($h, $reply);
 
         my @reply = split /\n/, $reply;
         my $returned = pop(@reply);
@@ -4710,28 +4613,18 @@ sub nic_woima_update {
             failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'});
             last;
         }
-        last if !header_ok($h, $reply);
-    
+
         my @reply = split /\n/, $reply;
-        my $state = 'header';
         my $returnedip = $ip;
     
         foreach my $line (@reply) {
-            if ($state eq 'header') {
-                $state = 'body';
-            
-            } elsif ($state eq 'body') {
-                $state = 'results' if $line eq '';
-            
-            } elsif ($state =~ /^results/) {
-                $state = 'results2';
-    
+
                 # bug #10: some dyndns providers does not return the IP so
                 # we can't use the returned IP
                 my ($status, $returnedip) = split / /, lc $line;
                 $ip = $returnedip if (not $ip);
                 #my $h = shift @hosts;
-            
+
                 $config{$h}{'status'} = $status;
                 if ($status eq 'good') {
                     $config{$h}{'ip'}     = $ip;
@@ -4764,10 +4657,7 @@ sub nic_woima_update {
                 } else {
                     failed("updating %s: %s: unexpected status (%s)", $h, $line);
                 } 	
-            }
         }
-        failed("updating %s: Could not connect to %s.", $h, $config{$h}{'server'})
-            if $state ne 'results2';
     }
 }
 
