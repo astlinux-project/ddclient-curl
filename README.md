@@ -11,7 +11,8 @@ DNS services currently supporting both IPv4 and IPv6 include:
     nsupdate    - See nsupdate(1) and ddns-confgen(8) for details
 
 Additional DNS services supported as with ddclient 3.8.3:
-    See https://github.com/wimpunk/ddclient/tree/v3.8.3 for details
+
+- See https://github.com/wimpunk/ddclient/tree/v3.8.3 for details
 
 -------------------------------------------------------------------------------
 Requirements:
@@ -19,8 +20,8 @@ Requirements:
 - An account from one of the supported DNS services
 
 - Perl 5.014 or later
-  Digest::SHA perl library for SHA1 support
-  JSON::PP perl library for JSON support
+..* JSON::PP perl library for JSON support (Cloudflare)
+..* Digest::SHA perl library for SHA1 support (FreeDNS)
 
 - 'curl' from the libcurl package
 
