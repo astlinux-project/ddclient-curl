@@ -1,5 +1,6 @@
-Version 3.8.3-01 (January 24, 2017)
+Version 3.8.3-01 (January 26, 2017)
 -----------------------------------
++ Add IPv6 support for Cloudflare
 - Remove IO::Socket, only use curl for network IO
 + Use JSON::PP instead of the (deprecated) JSON::Any
 + Miscellaneous upstream commits from: https://github.com/wimpunk/ddclient
