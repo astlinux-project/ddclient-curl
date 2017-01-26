@@ -4268,7 +4268,7 @@ EoINSTR3
 			my $status = pipecmd($command, $instructions);
 			if ($status eq 1) {
 				foreach (@hosts) {
-					$config{$_}{'ip'} = $ipv6;
+					$config{$_}{'ipv6'} = $ipv6;
 					$config{$_}{'mtime'} = $now;
 					success("updating %s: %s: IPv6 address set to %s", $_, $status, $ipv6);
 				}
