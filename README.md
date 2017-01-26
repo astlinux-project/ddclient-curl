@@ -1,2 +1,30 @@
+===============================================================================
 # ddclient-curl
+
 Fork of ddclient using curl for network IO
+
+===============================================================================
+DNS services currently supporting both IPv4 and IPv6 include:
+
+    Cloudflare  - See https://www.cloudflare.com/ for details
+    FreeDNS     - See https://freedns.afraid.org/ for details
+    nsupdate    - See nsupdate(1) and ddns-confgen(8) for details
+
+Additional DNS services supported as with ddclient 3.8.3:
+    See https://github.com/wimpunk/ddclient/tree/v3.8.3 for details
+
+-------------------------------------------------------------------------------
+Requirements:
+
+- An account from one of the supported DNS services
+
+- Perl 5.014 or later
+  Digest::SHA perl library for SHA1 support
+  JSON::PP perl library for JSON support
+
+- 'curl' from the libcurl package
+
+- 'ip' from the iproute2 package (Linux)
+
+-------------------------------------------------------------------------------
+
