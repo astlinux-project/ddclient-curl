@@ -2538,10 +2538,10 @@ sub nic_updateable {
     } else {
 		if (opt('verbose')) {
 			if (defined($config{$host}{'use'}) && ($config{$host}{'use'} ne 'no')) {
-				success("%s: skipped: IP address was already set to %s.", $host, $ip);
+				success("%s: skipped: IPv4 address was already set to %s.", $host, $ip);
 			}
 			if (defined($config{$host}{'usev6'}) && ($config{$host}{'usev6'} ne 'no')) {
-				success("%s: skipped: IP address was already set to %s.", $host, $ipv6);
+				success("%s: skipped: IPv6 address was already set to %s.", $host, $ipv6);
 			}
 		}
     }
