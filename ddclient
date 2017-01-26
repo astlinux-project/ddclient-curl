@@ -731,7 +731,7 @@ my @opt = (
     [ "ipv6",        "=s", "-ipv6 address         : set the IPv6 address to 'address'" ],
     "",			     
     [ "if",          "=s", "-if interface         : obtain IP address from 'interface'" ],
-    [ "if-skip",     "=s", "-if-skip pattern      : skip any IP addresses before 'pattern' in the output of ifconfig {if}" ],
+    [ "if-skip",     "=s", "-if-skip pattern      : skip any IP addresses before 'pattern' in the output of 'ip'" ],
     "",
     [ "web",         "=s", "-web provider|url     : obtain IP address from provider's IP checking page" ],
     [ "web-skip",    "=s", "-web-skip pattern     : skip any IP addresses before 'pattern' on the web provider|url" ],
@@ -1502,10 +1502,14 @@ sub test_possible_ip {
 
     {
 	local $opt{'use'} = 'if';
-	foreach my $if (grep {/^[a-zA-Z]/} `ifconfig -a`) {
-	    $if =~ s/:?\s.*//is;
-	    local $opt{'if'} = $if;
-	    printf "use=if, if=%s address is %s\n", opt('if'), define(get_ip('if'), 'NOT FOUND');
+	my $ip_out = `ip -o link show 2>/dev/null`;
+	$ip_out = '' if $?;
+	my @links = split('\n', $ip_out);
+	foreach my $link (@links) {
+	    if ($link =~ /^\d+:\s*([^:@]+)[:@].*/) {
+	        local $opt{'if'} = $1;
+	        printf "use=if, if=%s address is %s\n", opt('if'), define(get_ip('if'), 'NOT FOUND');
+	    }
 	}
     }
     if (opt('fw')) {
@@ -1539,10 +1543,14 @@ sub test_possible_ip {
     if defined opt('ipv6');
     {
 	local $opt{'use'} = 'if';
-	foreach my $if (grep {/^[a-zA-Z]/} `ifconfig -a`) {
-	    $if =~ s/:?\s.*//is;
-	    local $opt{'if'} = $if;
-	    printf "use=if, ifv6=%s address is %s\n", opt('if'), define(get_ipv6('if'), 'NOT FOUND');
+	my $ip_out = `ip -o link show 2>/dev/null`;
+	$ip_out = '' if $?;
+	my @links = split('\n', $ip_out);
+	foreach my $link (@links) {
+	    if ($link =~ /^\d+:\s*([^:@]+)[:@].*/) {
+	        local $opt{'if'} = $1;
+	        printf "use=if, ifv6=%s address is %s\n", opt('if'), define(get_ipv6('if'), 'NOT FOUND');
+	    }
 	}
     }
     {
