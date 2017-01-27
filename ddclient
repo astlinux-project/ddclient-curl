@@ -68,12 +68,11 @@ sub T_POSTS	{'postscript'};
 
 ## strategies for obtaining an ip address.
 my %builtinweb = (
-   'dyndns'       => { 'url' => 'http://checkip.dyndns.org/', 'skip' =>
-   'Current IP Address:', },
-   'dnspark'      => { 'url' => 'http://ipdetect.dnspark.com/', 'skip' => 'Current Address:', },
-   'loopia'       => { 'url' => 'http://dns.loopia.se/checkip/checkip.php', 'skip' => 'Current IP Address:', },
-   'whatismyv6'   => { 'url' => 'http://whatismyv6.com/', 'skip' => 'Address of:', },
-   'nsupdate.info' => { 'url' => 'https://ipv6.nsupdate.info/myip', , },
+   'dyndns'        => { 'url' => 'http://checkip.dyndns.org/', 'skip' => 'Current IP Address:', },
+   'dnspark'       => { 'url' => 'http://ipdetect.dnspark.com/', 'skip' => 'Current Address:', },
+   'he'            => { 'url' => 'http://checkip.dns.he.net/', 'skip' => 'Your IP address is', },
+   'whatismyv6'    => { 'url' => 'http://whatismyv6.com/', 'skip' => 'Address of:', },
+   'nsupdate.info' => { 'url' => 'https://www.nsupdate.info/myip', , },
 );
 my %builtinfw = (
     'watchguard-soho'        => {
