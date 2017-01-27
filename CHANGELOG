@@ -1,5 +1,6 @@
 Version 3.8.3-01 (January 27, 2017)
 -----------------------------------
++ Update builtinweb strategies for obtaining an IPv4/IPv6 address
 + Add Hurricane Electric Free DNS protocol 'he', supporting both IPv4 and IPv6
 + Use 'ip' instead of 'ifconfig' (Linux)
 + Add IPv6 support for Cloudflare
