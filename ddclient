@@ -2819,7 +2819,7 @@ sub nic_dyndns2_update {
 		    warning("updating %s: %s: wait $wait $units before further updates", $h, $status, $ip);
 		
 		} else {
-		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
+		    failed("updating %s: unexpected status (%s)", $h, $line);
 		} 	
 	}
     }
@@ -2906,7 +2906,7 @@ sub nic_noip_update {
 		    warning("updating %s: %s: wait $wait $units before further updates", $h, $status, $ip);
 		
 		} else {
-		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
+		    failed("updating %s: unexpected status (%s)", $h, $line);
 		} 	
 	}
     }
@@ -3419,7 +3419,7 @@ sub nic_easydns_update {
 		    failed("updating %s: %s: %s", $h, $line, $errors{$status});
 
 		} else {
-		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
+		    failed("updating %s: unexpected status (%s)", $h, $line);
 		} 	
 		last;
 	}
@@ -3565,7 +3565,7 @@ sub nic_dnspark_update {
 		    failed("updating %s: %s: %s", $h, $line, $errors{$status});
 
 		} else {
-		    failed("updating %s: %s: unexpected status (%s)", $h, $line);
+		    failed("updating %s: unexpected status (%s)", $h, $line);
 		} 	
 		last;
 	}
