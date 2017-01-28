@@ -1,4 +1,4 @@
-Version 3.8.3-01 (January 27, 2017)
+Version 3.8.3-01 (January 28, 2017)
 -----------------------------------
 + Update builtinweb strategies for obtaining an IPv4/IPv6 address
 + Add Hurricane Electric Free DNS protocol 'he', supporting both IPv4 and IPv6
@@ -7,7 +7,7 @@ Version 3.8.3-01 (January 27, 2017)
 - Remove IO::Socket, only use curl for network IO
 + Use JSON::PP instead of the (deprecated) JSON::Any
 + Miscellaneous upstream commits from: https://github.com/wimpunk/ddclient
-+ Comprehensive IPv6 framework with support for FreeDNS
++ Comprehensive IPv4/IPv6 framework with support for FreeDNS, thanks to David Kerr
 
 Version 3.8.3-00 (January 23, 2017)
 -----------------------------------
