@@ -753,7 +753,7 @@ my @opt = (
     nic_examples(),
     "$program version $version, ",
     "  originally written by Paul Burry, paul+ddclient\@burry.ca",
-    "  project now maintained on http://ddclient.sourceforge.net"
+    "  project now maintained on https://github.com/astlinux-project/ddclient-curl"
 );
 
 ## process args
