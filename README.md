@@ -3,6 +3,8 @@
 
 Fork of ddclient using curl for network IO
 
+Comprehensive IPv4/IPv6 framework by David Kerr
+
 ===============================================================================
 DNS services currently supporting both IPv4 and IPv6 include:
 
