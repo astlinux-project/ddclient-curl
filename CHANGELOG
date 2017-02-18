@@ -1,5 +1,6 @@
-Version 3.8.3-02 (January 30, 2017)
+Version 3.8.3-02 (February 18, 2017)
 -----------------------------------
+- Reduce logging that may contain sensitive information in the URL
 + No longer force HTTP/1.0 requests as the classic ddclient does
 + Add more descriptive warning messages for Hurricane Electric
 
