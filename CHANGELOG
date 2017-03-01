@@ -1,5 +1,6 @@
 Version 3.8.3-02 (March 1, 2017)
 --------------------------------
++ Add 'get-ipv6-from-ipv4' script to contrib, for use with: usev6=cmd, cmdv6=...
 + Pass IPv6 address as ARG2 to postscript application (if present)
 - Reduce logging that may contain sensitive information in the URL
 + No longer force HTTP/1.0 requests as the classic ddclient does
