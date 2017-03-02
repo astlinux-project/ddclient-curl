@@ -4282,25 +4282,18 @@ The 'cloudflare' protocol is used by DNS service offered by www.cloudflare.com.
 
 Configuration variables applicable to the 'cloudflare' protocol are:
   protocol=cloudflare          ## 
-  server=fqdn.of.service       ## defaults to api.cloudflare.com/client/v4
-  login=service-login          ## login name and password  registered with the service
-  password=service-password    ##
-  fully.qualified.host         ## the host registered with the service.
+  zone=Domain                  ## Root domain name of fully.qualified.host
+  login=Email                  ## Email address associated with your account
+  password=API_Key             ## API key generated on the "My Account" page
+  fully.qualified.host         ## Valid pre-existing A or AAAA record
 
 Example ${program}.conf file entries:
   ## single host update
   protocol=cloudflare,                                         \\
-  zone=dns.zone,                                               \\
-  login=my-cloudflare.com-login,                               \\
-  password=my-cloudflare.com-secure-token                      \\
-  myhost.com 
-
-  ## multiple host update to the custom DNS service
-  protocol=cloudflare,                                         \\
-  zone=dns.zone,                                               \\
-  login=my-cloudflare.com-login,                               \\
-  password=my-cloudflare.com-secure-token                      \\
-  my-toplevel-domain.com,my-other-domain.com
+  zone=example.com,                                            \\
+  login=me\@example.com,                                        \\
+  password=Hex_Char_API_Key                                    \\
+  myhost.example.com 
 EoEXAMPLE
 }
 ######################################################################
