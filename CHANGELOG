@@ -1,4 +1,4 @@
-Version 3.8.3-02 (March 1, 2017)
+Version 3.8.3-02 (March 2, 2017)
 --------------------------------
 + Add 'get-ipv6-from-ipv4' script to contrib, for use with: usev6=cmd, cmdv6=...
 + Pass IPv6 address as ARG2 to postscript application (if present)
