@@ -15,13 +15,13 @@ my $hostv4 = $ARGV[0];
 
 sub usage {
   print STDERR "Usage: get-ipv6-from-ipv4 address|hostname\n";
-  exit 1
+  exit 1;
 }
 
 sub error {
   my $msg = shift || '';
   printf STDERR "get-ipv6-from-ipv4: %s\n", $msg;
-  exit 1
+  exit 1;
 }
 
 if (!defined $hostv4 || $hostv4 eq '') {
@@ -74,9 +74,9 @@ foreach my $line (@lines) {
 }
 if (defined $hostv6) {
   print "$hostv6\n";
-  exit 0
+  exit 0;
 } elsif (!defined $llhostv6) {
-  exit 1
+  exit 1;
 }
 
 # Generate the IPv6 EUI-64 format from the prefix and link-local host
@@ -103,4 +103,4 @@ foreach my $line (@lines) {
   }
 }
 print "$hostv6\n" if defined $hostv6;
-exit 0
+exit 0;
