@@ -734,6 +734,7 @@ my @opt = (
     [ "retry",       "!",  "-{no}retry            : retry failed updates." ],
     [ "force",       "!",  "-{no}force            : force an update even if the update may be unnecessary" ],
     [ "timeout",     "=i", "-timeout max          : wait at most 'max' seconds for the host to respond" ],
+    [ "max-warn",    "=i", "-max-warn max         : maximum nubmer of warning messages for undefined IP address" ],
 
     [ "syslog",      "!",  "-{no}syslog           : log messages to syslog" ],
     [ "facility",    "=s", "-facility {type}      : log messages to syslog to facility {type}" ],
@@ -763,6 +764,8 @@ my ($result, %config, %globals, %cache);
 my $saved_cache = '';
 my %saved_opt = %opt;
 $result = 'OK';
+my (%warned_ipv4, %warned_ipv6);
+my $inv_ip_warn_count = define(opt('max-warn'),1);
 
 test_geturl(opt('geturl')) if opt('geturl');
 
@@ -2415,6 +2418,14 @@ sub nic_updateable {
     my $ip     = $config{$host}{'wantip'};
     my $ipv6   = $config{$host}{'wantipv6'};
 
+	if (defined($config{$host}{'use'}) && ($config{$host}{'use'} ne 'no') && define($ipv6,0) && define($warned_ipv6{$host},0) ) {
+		$warned_ipv6{$host} = 0;
+		warning("IPv6 address for %s valid: %s. Reset warning count", $host, $ipv6);
+	}
+	if (defined($config{$host}{'usev6'}) && ($config{$host}{'usev6'} ne 'no') && define($ip,0) && define($warned_ipv4{$host},0) ) {
+		$warned_ipv4{$host} = 0;
+		warning("IP address for %s valid: %s. Reset warning count", $host, $ip);
+	}
     if ($config{$host}{'login'} eq '') {
 		warning("null login name specified for host %s.", $host);
 
@@ -2462,16 +2473,21 @@ sub nic_updateable {
 	    
 		} elsif (($cache{$host}{'status'} ne 'good') && !interval_expired($host, 'atime', 'min-error-interval')) {
 
-			warning("skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
-			 $host,
-			 ($cache{$host}{'ip'}    ? $cache{$host}{'ip'}                : '<nothing>'),
-			 $ip,
-			 ($cache{$host}{'mtime'} ? prettytime($cache{$host}{'mtime'}) : '<never>'),
-			 ($cache{$host}{'atime'} ? prettytime($cache{$host}{'atime'}) : '<never>'),
-			 prettyinterval($config{$host}{'min-error-interval'})
-			)
-			if opt('verbose') || !define($cache{$host}{'warned-min-error-interval'}, 0);
-				$cache{$host}{'warned-min-error-interval'} = $now;
+            if (opt('verbose') || (!define($cache{$host}{'warned-min-error-interval'}, 0) && (define($warned_ipv4{$host}, 0) < $inv_ip_warn_count) )) {
+				warning("skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
+				 $host,
+				 ($cache{$host}{'ip'}    ? $cache{$host}{'ip'}                : '<nothing>'),
+				 $ip,
+				 ($cache{$host}{'mtime'} ? prettytime($cache{$host}{'mtime'}) : '<never>'),
+				 ($cache{$host}{'atime'} ? prettytime($cache{$host}{'atime'}) : '<never>'),
+				 prettyinterval($config{$host}{'min-error-interval'})
+				);
+				if (!define($ip,0) && !opt('verbose')) {
+					$warned_ipv4{$host} = define($warned_ipv4{$host}, 0) + 1;
+					warning ("IP address for %s undefined. Warned %s times, suppressing further warnings", $host, $inv_ip_warn_count) if ($warned_ipv4{$host} >= $inv_ip_warn_count);
+				}
+			}
+			$cache{$host}{'warned-min-error-interval'} = $now;
 
 		} else {
 			$update = 1;
@@ -2492,16 +2508,21 @@ sub nic_updateable {
 				$cache{$host}{'warned-min-interval'} = $now;
 
         } elsif (($cache{$host}{'status-ipv6'} ne 'good') && !interval_expired($host, 'atime', 'min-error-interval')) {
-            warning("skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
-			 $host, 
-			 ($cache{$host}{'ipv6'}    ? $cache{$host}{'ipv6'}                : '<nothing>'),
-			 $ipv6,
-			 ($cache{$host}{'mtime'} ? prettytime($cache{$host}{'mtime'}) : '<never>'),
-			 ($cache{$host}{'atime'} ? prettytime($cache{$host}{'atime'}) : '<never>'),
-			 prettyinterval($config{$host}{'min-error-interval'})
-            )
-            if opt('verbose') || !define($cache{$host}{'warned-min-error-interval'}, 0);
-				$cache{$host}{'warned-min-error-interval'} = $now;
+			if (opt('verbose') || (!define($cache{$host}{'warned-min-error-interval'}, 0) && (define($warned_ipv6{$host}, 0) < $inv_ip_warn_count) )) {
+				warning("skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
+				 $host,
+				 ($cache{$host}{'ipv6'}    ? $cache{$host}{'ipv6'}                : '<nothing>'),
+				 $ipv6,
+				 ($cache{$host}{'mtime'} ? prettytime($cache{$host}{'mtime'}) : '<never>'),
+				 ($cache{$host}{'atime'} ? prettytime($cache{$host}{'atime'}) : '<never>'),
+				 prettyinterval($config{$host}{'min-error-interval'})
+				);
+				if (!define($ipv6,0) && !opt('verbose')) {
+					$warned_ipv6{$host} = define($warned_ipv6{$host}, 0) + 1;
+					warning ("IPv6 address for %s undefined. Warned %s times, suppressing further warnings", $host, $inv_ip_warn_count) if ($warned_ipv6{$host} >= $inv_ip_warn_count);
+				}
+			}
+			$cache{$host}{'warned-min-error-interval'} = $now;
 
         } else {
             $update = 1;
@@ -3825,7 +3846,7 @@ sub nic_freedns_update {
                 $config{$h}{'ip'}     = $ip;
                 $config{$h}{'mtime'}  = $now;
                 $config{$h}{'status'} = 'good';
-                success("update not necessary %s: good: IPv4 address already set to %s", $h, $ip);
+                success("update not necessary %s: good: IPv4 address already set to %s", $h, $ip) if (!$daemon || opt('verbose'));
             } else {
                 debug("Update: %s", $freedns_hosts{$h}->[2]."&address=".$ip);
                 my $reply = geturl(opt('proxy'), $freedns_hosts{$h}->[2]."&address=".$ip);
@@ -3858,7 +3879,7 @@ sub nic_freedns_update {
                 $config{$h}{'ipv6'}     = $ipv6;
                 $config{$h}{'mtime'}  = $now;
                 $config{$h}{'status-ipv6'} = 'good';
-                success("update not necessary %s: good: IPv6 address already set to %s", $h, $ipv6);
+                success("update not necessary %s: good: IPv6 address already set to %s", $h, $ipv6) if (!$daemon || opt('verbose'));
             } else {
                 debug("Update: %s", $freedns_hosts_ipv6{$h}->[2]."&address=".$ipv6);
                 my $reply = geturl(opt('proxy'), $freedns_hosts_ipv6{$h}->[2]."&address=".$ipv6);
