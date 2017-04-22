@@ -1,3 +1,8 @@
+Version 3.8.3-03-devel (April 22, 2017)
+---------------------------------------
++ Separated IPv6 from IPv4 update status into separate variable
++ Added -max-warn command line option to control number of warning messages
+
 Version 3.8.3-02 (March 2, 2017)
 --------------------------------
 + Add 'get-ipv6-from-ipv4' script to contrib, for use with: usev6=cmd, cmdv6=...

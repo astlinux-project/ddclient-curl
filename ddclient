@@ -26,7 +26,7 @@ use strict;
 use Getopt::Long;
 use Sys::Hostname;
 
-my $version  = "3.8.3-02";
+my $version  = "3.8.3-03-devel";
 my $programd  = $0; 
 $programd =~ s%^.*/%%;
 my $program   = $programd;
