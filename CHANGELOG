@@ -1,5 +1,6 @@
-Version 3.8.3-03-devel (April 22, 2017)
----------------------------------------
+Version 3.8.3-03-devel (May 4, 2017)
+------------------------------------
++ Major style cleanup with help from the 'perltidy' utility
 + Separated IPv6 from IPv4 update status into separate variable
 + Added -max-warn command line option to control number of warning messages
 
