@@ -1173,9 +1173,7 @@ sub _read_config {
             last;
         }
         if (/\\\s+$/) {
-            warning(
-"whitespace follows the \\ at the end-of-line.\nIf you meant to have a line continuation, remove the trailing whitespace."
-            );
+            warning("whitespace follows the \\ at the end-of-line.\nIf you meant to have a line continuation, remove the trailing whitespace.");
         }
 
         $content .= "$_\n" unless /^#/;
@@ -2197,7 +2195,6 @@ sub get_ip {
         $arg = $url;
 
         if ($url) {
-
             # when using a web server to find public IPv4 address we should force use of IPv4
             $reply = geturl(opt('proxy', $h), $url, undef, undef, undef, undef, undef, '4') || '';
         }
@@ -2317,7 +2314,6 @@ sub get_ipv6 {
         $arg = $url;
 
         if ($url) {
-
             # when using a web server to find our IPv6 address we should force use of IPv6
             $reply = geturl(opt('proxy', $h), $url, undef, undef, undef, undef, undef, '6') || '';
         }
@@ -2503,7 +2499,7 @@ sub nic_updateable {
               )
             {
                 warning(
-"skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
+                    "skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
                     $host,
                     ($cache{$host}{'ip'} ? $cache{$host}{'ip'} : '<nothing>'),
                     $ip,
@@ -2545,7 +2541,7 @@ sub nic_updateable {
               )
             {
                 warning(
-"skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
+                    "skipping update of %s from %s to %s.\nlast updated %s but last attempt on %s failed.\nWait at least %s between update attempts.",
                     $host,
                     ($cache{$host}{'ipv6'} ? $cache{$host}{'ipv6'} : '<nothing>'),
                     $ipv6,
