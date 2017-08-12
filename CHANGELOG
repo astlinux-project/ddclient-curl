@@ -1,7 +1,4 @@
-Version 3.8.3-05-devel (August 12, 2017)
-----------------------------------------
-
-Version 3.8.3-04 (August 12, 2017)
+Version 3.8.3-05 (August 12, 2017)
 ----------------------------------
 + Update DuckDNS Free DNS protocol 'duckdns', supporting both IPv4 and IPv6
 
