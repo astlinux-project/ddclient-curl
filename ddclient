@@ -4618,11 +4618,11 @@ sub nic_duckdns_update {
                 my $returned = pop(@reply);
                 if ($returned =~ /OK/) {
                     success("updating %s: IPv6 address set to %s", $host, $ipv6);
-                    $config{$host}{'ipv6'}   = $ipv6;
-                    $config{$host}{'mtime'}  = $now;
-                    $config{$host}{'status'} = 'good';
+                    $config{$host}{'ipv6'}        = $ipv6;
+                    $config{$host}{'mtime'}       = $now;
+                    $config{$host}{'status-ipv6'} = 'good';
                 } else {
-                    $config{$host}{'status'} = 'failed';
+                    $config{$host}{'status-ipv6'} = 'failed';
                     failed("updating %s: unexpected status (%s)", $host, $returned);
                 }
             }
