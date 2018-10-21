@@ -35,7 +35,7 @@ if (!defined $type || ($type ne 'ula' && $type ne 'lla' && $type ne 'all')) {
 }
 
 # Add hostv4 entry to ARP table
-`fping -c 1 $hostv4 >/dev/null 2>&1`;
+`fping -4 -c 1 $hostv4 >/dev/null 2>&1`;
 
 my $arp = `arp -a $hostv4`;
 
@@ -75,8 +75,8 @@ if (!defined $srcv6) {
   error "No IPv6 global address for interface: $int";
 }
 
-# fping6 "ff02::1" (All Nodes Address) with the global address source of the interface
-`fping6 -I $int -c 2 -S $srcv6 ff02::1 >/dev/null 2>&1`;
+# fping -6 "ff02::1" (All Nodes Address) with the global address source of the interface
+`fping -6 -I $int -c 2 -S $srcv6 ff02::1 >/dev/null 2>&1`;
 
 # Wait for Neighbor Discovery to settle
 sleep 5;
@@ -123,7 +123,7 @@ my @h = split(':', $lla_hostv6);
 $ipv6 = join(':', $p[0], $p[1], $p[2], $p[3], $h[$#h-3], $h[$#h-2], $h[$#h-1], $h[$#h]);
 
 # Try again with the IPv6 EUI-64 format
-`fping6 -I $int -c 2 -S $srcv6 $ipv6 >/dev/null 2>&1`;
+`fping -6 -I $int -c 2 -S $srcv6 $ipv6 >/dev/null 2>&1`;
 
 # Wait for Neighbor Discovery to settle
 sleep 1;
