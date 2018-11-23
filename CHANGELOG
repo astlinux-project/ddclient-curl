@@ -1,9 +1,20 @@
-Version 3.8.3-TBD (April ??, 2017)
+Version 3.8.3-06-devel (August 12, 2017)
+----------------------------------------
+
+Version 3.8.3-05 (August 12, 2017)
+----------------------------------
++ Update DuckDNS Free DNS protocol 'duckdns', supporting both IPv4 and IPv6
+
+Version 3.8.3-03 (May 5, 2017)
+------------------------------
++ Major style cleanup with help from the 'perltidy' utility
 + Separated IPv6 from IPv4 update status into separate variable
 + Added -max-warn command line option to control number of warning messages
 
-Version 3.8.3-02 (February 18, 2017)
------------------------------------
+Version 3.8.3-02 (March 2, 2017)
+--------------------------------
++ Add 'get-ipv6-from-ipv4' script to contrib, for use with: usev6=cmd, cmdv6=...
++ Pass IPv6 address as ARG2 to postscript application (if present)
 - Reduce logging that may contain sensitive information in the URL
 + No longer force HTTP/1.0 requests as the classic ddclient does
 + Add more descriptive warning messages for Hurricane Electric
