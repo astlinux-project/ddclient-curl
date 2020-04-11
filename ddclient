@@ -508,6 +508,17 @@ my %services = (
             $variables{'service-common-defaults'},
         ),
     },
+    'inwx' => {
+	    'updateable' => \&nic_dyndns2_updateable,
+	    'update'     => \&nic_inwx_update,
+	    'examples'   => \&nic_dyndns2_examples,
+	    'variables'  => merge(
+			      { 'custom'  => setv(T_BOOL,   0, 1, 1, 0, undef),	},
+			      { 'script'  => setv(T_STRING, 1, 1, 1, '/nic/update', undef),	},
+			      $variables{'dyndns-common-defaults'},
+			      $variables{'service-common-defaults'},
+		            ),
+    },
     'noip' => {
         'updateable' => undef,
         'update'     => \&nic_noip_update,
@@ -2832,6 +2843,137 @@ sub nic_dyndns2_update {
         $url .= "&hostname=$hosts";
         $url .= "&myip=";
         $url .= $ip if $ip;
+
+        ## some args are not valid for a custom domain.
+        $url .= "&wildcard=ON" if ynu($config{$h}{'wildcard'}, 1, 0, 0);
+        if ($config{$h}{'mx'}) {
+            $url .= "&mx=$config{$h}{'mx'}";
+            $url .= "&backmx=" . ynu($config{$h}{'backupmx'}, 'YES', 'NO');
+        }
+
+        my $reply = geturl(opt('proxy'), $url, $config{$h}{'login'}, $config{$h}{'password'});
+        if (!defined($reply) || !$reply) {
+            failed("updating %s: Could not connect to %s.", $hosts, $config{$h}{'server'});
+            last;
+        }
+
+        my @reply = split /\n/, $reply;
+        my $returnedip = $ip;
+
+        foreach my $line (@reply) {
+
+            # bug #10: some dyndns providers does not return the IP so
+            # we can't use the returned IP
+            my ($status, $returnedip) = split / /, lc $line;
+            $ip = $returnedip if (not $ip);
+            my $h = shift @hosts;
+
+            $config{$h}{'status'} = $status;
+            if ($status eq 'good') {
+                $config{$h}{'ip'}    = $ip;
+                $config{$h}{'mtime'} = $now;
+                success("updating %s: %s: IP address set to %s", $h, $status, $ip);
+
+            } elsif (exists $errors{$status}) {
+                if ($status eq 'nochg') {
+                    warning("updating %s: %s: %s", $h, $status, $errors{$status});
+                    $config{$h}{'ip'}     = $ip;
+                    $config{$h}{'mtime'}  = $now;
+                    $config{$h}{'status'} = 'good';
+
+                } else {
+                    failed("updating %s: %s: %s", $h, $status, $errors{$status});
+                }
+
+            } elsif ($status =~ /w(\d+)(.)/) {
+                my ($wait, $units) = ($1,    lc $2);
+                my ($sec,  $scale) = ($wait, 1);
+
+                ($scale, $units) = (1,  'seconds') if $units eq 's';
+                ($scale, $units) = (60, 'minutes') if $units eq 'm';
+                ($scale, $units) = (60 * 60, 'hours') if $units eq 'h';
+
+                $sec = $wait * $scale;
+                $config{$h}{'wtime'} = $now + $sec;
+                warning("updating %s: %s: wait $wait $units before further updates", $h, $status, $ip);
+
+            } else {
+                failed("updating %s: unexpected status (%s)", $h, $line);
+            }
+        }
+    }
+}
+
+######################################################################
+## nic_inwx_update
+## Note:    Same as nic_dyndns2_update, but it can contemporarily
+##          handle over the ipv6 address with the ipv4 address
+######################################################################
+sub nic_inwx_update {
+    debug("\nnic_inwx_update -------------------");
+
+    ## group hosts with identical attributes together
+    my %groups = group_hosts_by([@_], [qw(login password server static custom wildcard mx backupmx)]);
+
+    my %errors = (
+        'badauth' => 'Bad authorization (username or password)',
+        'badsys'  => 'The system parameter given was not valid',
+
+        'notfqdn'  => 'A Fully-Qualified Domain Name was not provided',
+        'nohost'   => 'The hostname specified does not exist in the database',
+        '!yours'   => 'The hostname specified exists, but not under the username currently being used',
+        '!donator' => 'The offline setting was set, when the user is not a donator',
+        '!active'  => 'The hostname specified is in a Custom DNS domain which has not yet been activated.',
+        'abuse',   => 'The hostname specified is blocked for abuse; you should receive an email notification '
+          . 'which provides an unblock request link.  More info can be found on '
+          . 'https://www.dyndns.com/support/abuse.html',
+
+        'numhost' => 'System error: Too many or too few hosts found. Contact support@dyndns.org',
+        'dnserr'  => 'System error: DNS error encountered. Contact support@dyndns.org',
+
+        'nochg' => 'No update required; unnecessary attempts to change to the current address are considered abusive',
+    );
+
+    ## update each set of hosts that had similar configurations
+    foreach my $sig (keys %groups) {
+        my @hosts = @{$groups{$sig}};
+        my $hosts = join(',', @hosts);
+        my $h     = $hosts[0];
+        my $ip    = $config{$h}{'wantip'};
+    	my $ipv6  = $config{$h}{'wantipv6'};
+        delete $config{$_}{'wantip'} foreach @hosts;
+
+        info("setting IP address to %s for %s", $ip, $hosts);
+        verbose("UPDATE:", "updating %s", $hosts);
+
+        ## Select the DynDNS system to update
+        my $url = "http://$config{$h}{'server'}$config{$h}{'script'}?system=";
+        if ($config{$h}{'custom'}) {
+            warning("updating %s: 'custom' and 'static' may not be used together. ('static' ignored)", $hosts)
+              if $config{$h}{'static'};
+
+#        warning("updating %s: 'custom' and 'offline' may not be used together. ('offline' ignored)", $hosts)
+#          if $config{$h}{'offline'};
+            $url .= 'custom';
+
+        } elsif ($config{$h}{'static'}) {
+
+#        warning("updating %s: 'static' and 'offline' may not be used together. ('offline' ignored)", $hosts)
+#          if $config{$h}{'offline'};
+            $url .= 'statdns';
+
+        } else {
+            $url .= 'dyndns';
+        }
+
+        $url .= "&hostname=$hosts";
+        $url .= "&myip=";
+        $url .= $ip if $ip;
+
+        if (defined($ipv6)) {
+            $url .= "&myipv6=";
+            $url .= $ipv6;
+        }
 
         ## some args are not valid for a custom domain.
         $url .= "&wildcard=ON" if ynu($config{$h}{'wildcard'}, 1, 0, 0);
