@@ -7,10 +7,7 @@
 # Author: David Kerr, et al.
 # website: https://github.com/astlinux-project/ddclient-curl
 #
-# Current ddclient Maintainer: wimpunk https://github.com/wimpunk
-# website: https://github.com/wimpunk/ddclient
-#
-# Original Author: Paul Burry (paul+ddclient@burry.ca)
+# website: https://ddclient.net
 #
 # Support for multiple IP numbers added by
 # Astaro AG, Ingo Schwarze <ischwarze-OOs/4mkCeqbQT0dZR+AlfA@public.gmane.org> September 16, 2008
@@ -20,8 +17,9 @@
 # Initial Cloudflare support by Ian Pye, updated by Robert Ian Hawdon 2012-07-16
 # Further updates by Peter Roberts to support the new API 2013-09-26, 2014-06-22: http://blog.peter-r.co.uk/
 #
+#
 ######################################################################
-require 5.004;
+require v5.8.0;
 use strict;
 use Getopt::Long;
 use Sys::Hostname;
@@ -68,10 +66,14 @@ sub T_POSTS  {'postscript'}
 
 ## strategies for obtaining an ip address.
 my %builtinweb = (
-    'dyndns'        => {'url' => 'http://checkip.dyndns.org/',   'skip' => 'Current IP Address:',},
-    'he'            => {'url' => 'http://checkip.dns.he.net/',   'skip' => 'Your IP address is',},
-    'whatismyv6'    => {'url' => 'http://whatismyv6.com/',       'skip' => 'Address of:',},
-    'nsupdate.info' => {'url' => 'https://www.nsupdate.info/myip',,},
+    'dyndns'    => {'url' => 'http://checkip.dyndns.org/',   'skip' => 'Current IP Address:',},
+    'ipifyipv4' => { 'url' => 'https://api.ipify.org/', },
+    'ipifyipv6' => { 'url' => 'https://api6.ipify.org/', },
+    'loopia'    => { 'url' => 'http://dns.loopia.se/checkip/checkip.php', 'skip' => 'Current IP Address:', },
+    'myonlineportal' => { 'url' => 'https://myonlineportal.net/checkip', },
+    'he'             => {'url' => 'http://checkip.dns.he.net/',   'skip' => 'Your IP address is',},
+    'whatismyv6'     => {'url' => 'http://whatismyv6.com/',       'skip' => 'Address of:',},
+    'nsupdate.info'  => { 'url' => 'https://ipv6.nsupdate.info/myip', , },
 );
 my %builtinfw = (
     'watchguard-soho' => {
@@ -961,10 +963,10 @@ sub write_pid {
     if ($file && opt('daemon')) {
         local *FD;
         if (!open(FD, "> $file")) {
-            warning("Cannot create file '%s'. ($!)", $file);
+            warning("Cannot create file '%s'. (%s)", $file, $!);
 
         } else {
-            printf FD "$$\n";
+            printf FD "%s\n", $$;
             close(FD);
         }
     }
@@ -1000,11 +1002,11 @@ sub write_cache {
         $saved_cache = undef;
         local *FD;
         if (!open(FD, "> $file")) {
-            fatal("Cannot create file '%s'. ($!)", $file);
+            fatal("Cannot create file '%s'. (%s)", $file, $!);
         }
-        printf FD "## $program-$version\n";
+        printf FD "## %s-%s\n", $program, $version;
         printf FD "## last updated at %s (%d)\n", prettytime($now), $now;
-        printf FD $cache;
+        printf FD "%s", $cache;
 
         close(FD);
     }
@@ -1118,11 +1120,10 @@ sub _read_config {
     my ($dev, $ino, $mode, @statrest) = stat(FD);
     if ($mode & 077) {
         if (-f FD && (chmod 0600, $file)) {
-            warning("file $file must be accessible only by its owner (fixed).");
+            warning("file %s must be accessible only by its owner (fixed).", $file);
         } else {
 
-            # fatal("file $file must be accessible only by its owner.");
-            warning("file $file must be accessible only by its owner.");
+            warning("file %s must be accessible only by its owner.", $file);
         }
     }
 
@@ -1306,7 +1307,7 @@ sub init_config {
 
     ## sanity check
     if (defined $opt{'host'} && defined $opt{'retry'}) {
-        usage("options -retry and -host (or -option host=..) are mutually exclusive");
+        fatal("options -retry and -host (or -option host=..) are mutually exclusive");
     }
 
     ## determine hosts to update (those on the cmd-line, config-file, or failed cached)
@@ -1470,7 +1471,7 @@ sub test_possible_ip {
         if (opt('fw') !~ m%/%) {
             foreach my $fw (sort keys %builtinfw) {
                 local $opt{'use'} = $fw;
-                printf "use=$fw address is %s\n", define(get_ip($fw), 'NOT FOUND');
+                printf "use=%s address is %s\n", $fw, define(get_ip($fw), 'NOT FOUND');
             }
         }
         local $opt{'use'} = 'fw';
@@ -1482,7 +1483,7 @@ sub test_possible_ip {
         local $opt{'use'} = 'web';
         foreach my $web (sort keys %builtinweb) {
             local $opt{'web'} = $web;
-            printf "use=web, web=$web address is %s\n", define(get_ip('web'), 'NOT FOUND');
+            printf "use=web, web=%s address is %s\n", $web, define(get_ip('web'), 'NOT FOUND');
         }
         printf "use=web, web=%s address is %s\n", opt('web'), define(get_ip('web'), 'NOT FOUND')
           if !exists $builtinweb{opt('web')};
@@ -1552,7 +1553,7 @@ sub load_file {
         close(FD);
         debug("Loaded %d bytes from %s", length($buffer), $file);
     } else {
-        debug("Load failed from %s ($!)", $file);
+        debug("Load failed from %s (%s)", $file, $!);
     }
     return $buffer;
 }
@@ -1639,17 +1640,17 @@ sub pipecmd {
     ## execute the command.
     local *FD;
     if (!open(FD, $cmd)) {
-        printf STDERR "$program: cannot execute command %s.\n", $cmd;
+        printf STDERR "%s: cannot execute command %s.\n", $program, $cmd;
 
     } elsif ($stdin && (!print FD "$stdin\n")) {
-        printf STDERR "$program: failed writting to %s.\n", $cmd;
+        printf STDERR "%s: failed writting to %s.\n", $program, $cmd;
         close(FD);
 
     } elsif (!close(FD)) {
-        printf STDERR "$program: failed closing %s.($@)\n", $cmd;
+        printf STDERR "%s: failed closing %s.(%s)\n", $program, $cmd, $@;
 
     } elsif (opt('exec') && $?) {
-        printf STDERR "$program: failed %s. ($@)\n", $cmd;
+        printf STDERR "%s: failed %s. (%s)\n", $program, $cmd, $@;
 
     } else {
         $ok = 1;
@@ -1973,10 +1974,11 @@ EOM
 ## load_json_support
 ######################################################################
 sub load_json_support {
+    my $why = shift;
     my $json_loaded = eval {require JSON::PP};
     unless ($json_loaded) {
-        fatal(<<"EOM");
-Error loading the Perl module JSON::PP needed for cloudflare update.
+        fatal("%s", <<"EOM");
+Error loading the Perl module JSON::PP needed for $why update.
 EOM
     }
     import JSON::PP(qw/decode_json/);
@@ -2035,9 +2037,10 @@ sub geturl {
             $head_args .= "-H '$head_line' ";
         }
 
+            # don't include ${url} as that might expose login credentials
         $0 = sprintf("%s - curl (w/headers) sending to %s", $program, "https://${server}");
 
-        $reply = <<`USE_CURL_WITH_HEADERS`;
+            $reply = <<"USE_CURL_WITH_HEADERS";
 /usr/bin/curl -s -X $method --user-agent '${program}/${version}' \\
               --connect-timeout $timeout --max-time $timeout \\
               ${head_args} \\
@@ -2046,6 +2049,7 @@ sub geturl {
 USE_CURL_WITH_HEADERS
 
         if (!$reply) {
+                # don't include ${url} as that might expose login credentials
             warning("curl (w/headers) cannot connect to https://${server}");
         }
     } else {
@@ -2061,15 +2065,17 @@ USE_CURL_WITH_HEADERS
             $curlopt .= ' --insecure';
         }
 
+            # don't include ${url} as that might expose login credentials
         $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}");
 
-        $reply = <<`USE_CURL`;
+            $reply = <<"USE_CURL";
 /usr/bin/curl -s ${auth} --user-agent '${program}/${version}' \\
               --connect-timeout $timeout --max-time $timeout $curlopt \\
               --url '${protocol}://${server}/${url}' 2>/dev/null
 USE_CURL
 
         if (!$reply) {
+                # don't include ${url} as that might expose login credentials
             warning("curl cannot connect to ${protocol}://${server}");
         }
     }
@@ -2345,7 +2351,7 @@ sub nic_examples {
             $separator = "\n";
         }
     }
-    my $intro = <<EoEXAMPLE;
+    my $intro = <<"EoEXAMPLE";
 == CONFIGURING ${program}
 
 The configuration file, ${program}.conf, can be used to define the
@@ -2426,10 +2432,10 @@ sub nic_updateable {
         $update = 1;
 
     } elsif ($cache{$host}{'wtime'} && $cache{$host}{'wtime'} > $now) {
-        warning(
-            "cannot update %s from %s to %s until after %s.",
-            $host, ($cache{$host}{'ip'} ? $cache{$host}{'ip'} : '<nothing>'),
-            $ip, prettytime($cache{$host}{'wtime'})
+        warning("cannot update %s from %s to %s until after %s.",
+                $host,
+                ($cache{$host}{'ip'} ? $cache{$host}{'ip'} : '<nothing>'), $ip,
+                prettytime($cache{$host}{'wtime'})
         );
 
     } elsif ($cache{$host}{'mtime'} && interval_expired($host, 'mtime', 'max-interval')) {
@@ -2582,7 +2588,7 @@ sub nic_updateable {
 ## nic_dyndns1_examples
 ######################################################################
 sub nic_dyndns1_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'dyndns1'
 
 The 'dyndns1' protocol is a deprecated protocol used by the free dynamic
@@ -2695,7 +2701,7 @@ sub nic_dyndns2_updateable {
 ## nic_dyndns2_examples
 ######################################################################
 sub nic_dyndns2_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'dyndns2'
 
 The 'dyndns2' protocol is a newer low-bandwidth protocol used by a
@@ -2755,9 +2761,9 @@ sub nic_dyndns2_update {
         '!yours'   => 'The hostname specified exists, but not under the username currently being used',
         '!donator' => 'The offline setting was set, when the user is not a donator',
         '!active'  => 'The hostname specified is in a Custom DNS domain which has not yet been activated.',
-        'abuse',   => 'The hostname specified is blocked for abuse; you should receive an email notification '
-          . 'which provides an unblock request link.  More info can be found on '
-          . 'https://www.dyndns.com/support/abuse.html',
+       'abuse',   => 'The hostname specified is blocked for abuse; you should receive an email notification ' .
+                     'which provides an unblock request link.  More info can be found on ' .
+                     'https://www.dyndns.com/support/abuse.html',
 
         'numhost' => 'System error: Too many or too few hosts found. Contact support@dyndns.org',
         'dnserr'  => 'System error: DNS error encountered. Contact support@dyndns.org',
@@ -2851,7 +2857,7 @@ sub nic_dyndns2_update {
 
                 $sec = $wait * $scale;
                 $config{$h}{'wtime'} = $now + $sec;
-                warning("updating %s: %s: wait $wait $units before further updates", $h, $status, $ip);
+                    warning("updating %s: %s: wait %s %s before further updates", $h, $status, $wait, $units);
 
             } else {
                 failed("updating %s: unexpected status (%s)", $h, $line);
@@ -2937,7 +2943,7 @@ sub nic_noip_update {
 
                 $sec = $wait * $scale;
                 $config{$h}{'wtime'} = $now + $sec;
-                warning("updating %s: %s: wait $wait $units before further updates", $h, $status, $ip);
+                    warning("updating %s: %s: wait %s %s before further updates", $h, $status, $wait, $units);
 
             } else {
                 failed("updating %s: unexpected status (%s)", $h, $line);
@@ -2949,7 +2955,7 @@ sub nic_noip_update {
 ## nic_noip_examples
 ######################################################################
 sub nic_noip_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'noip'
 
 The 'No-IP Compatible' protocol is used to make dynamic dns updates
@@ -2977,7 +2983,7 @@ EoEXAMPLE
 ## nic_dslreports1_examples
 ######################################################################
 sub nic_dslreports1_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'dslreports1'
 
 The 'dslreports1' protocol is used by a free DSL monitoring service
@@ -3050,7 +3056,7 @@ sub nic_dslreports1_update {
 ## nic_hammernode1_examples
 ######################################################################
 sub nic_hammernode1_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'hammernode1'
 
 The 'hammernode1' protocol is the protocol used by the free dynamic
@@ -3119,7 +3125,7 @@ sub nic_hammernode1_update {
 ## nic_zoneedit1_examples
 ######################################################################
 sub nic_zoneedit1_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'zoneedit1'
 
 The 'zoneedit1' protocol is used by a DNS service offered by
@@ -3251,7 +3257,7 @@ sub nic_easydns_updateable {
 ## nic_easydns_examples
 ######################################################################
 sub nic_easydns_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'easydns'
 
 The 'easydns' protocol is used by the for fee DNS service offered 
@@ -3362,7 +3368,7 @@ sub nic_easydns_update {
                 ($scale, $units) = (60, 'minutes') if $units eq 'm';
                 ($scale, $units) = (60 * 60, 'hours') if $units eq 'h';
                 $config{$h}{'wtime'} = $now + $sec;
-                warning("updating %s: %s: wait $wait $units before further updates", $h, $status, $ip);
+                    warning("updating %s: %s: wait %d %s before further updates", $h, $status, $wait, $units);
 
             } elsif (exists $errors{$status}) {
                 failed("updating %s: %s: %s", $h, $line, $errors{$status});
@@ -3380,7 +3386,7 @@ sub nic_easydns_update {
 ## nic_namecheap_examples
 ######################################################################
 sub nic_namecheap_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 
 o 'namecheap'
 
@@ -3389,16 +3395,16 @@ The 'namecheap' protocol is used by DNS service offered by www.namecheap.com.
 Configuration variables applicable to the 'namecheap' protocol are:
   protocol=namecheap           ## 
   server=fqdn.of.service       ## defaults to dynamicdns.park-your-domain.com
-  login=service-login          ## login name and password  registered with the service
-  password=service-password    ##
-  fully.qualified.host         ## the host registered with the service.
+  login=service-login          ## the domain of the dynamic DNS record you want to update
+  password=service-password    ## Generated password for your dynamic DNS record
+  hostname                     ## the subdomain to update, use @ for base domain name, * for catch all
 
 Example ${program}.conf file entries:
   ## single host update
-  protocol=namecheap,                                         \\
-  login=my-namecheap.com-login,                               \\
-  password=my-namecheap.com-password                          \\
-  myhost.namecheap.com 
+  protocol=namecheap                                          \\
+  login=example.com                                           \\
+  password=example.com-generated-password                     \\
+  @
 
 EoEXAMPLE
 }
@@ -3407,9 +3413,10 @@ EoEXAMPLE
 ##
 ## written by Dan Boardman
 ##
-## based on http://www.namecheap.com/resources/help/index.asp?t=dynamicdns
+## based on https://www.namecheap.com/support/knowledgebase/
+## article.aspx/29/11/how-to-use-the-browser-to-dynamically-update-hosts-ip
 ## needs this url to update:
-## http://dynamicdns.park-your-domain.com/update?host=host_name&
+## https://dynamicdns.park-your-domain.com/update?host=host_name&
 ## domain=domain.com&password=domain_password[&ip=your_ip]
 ##
 ######################################################################
@@ -3424,7 +3431,7 @@ sub nic_namecheap_update {
         verbose("UPDATE:", "updating %s", $h);
 
         my $url;
-        $url = "http://$config{$h}{'server'}/update";
+        $url = "https://$config{$h}{'server'}/update";
         my $domain = $config{$h}{'login'};
         my $host   = $h;
         $host =~ s/(.*)\.$domain(.*)/$1$2/;
@@ -3463,7 +3470,7 @@ sub nic_namecheap_update {
 ## nic_sitelutions_examples
 ######################################################################
 sub nic_sitelutions_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 
 o 'sitelutions'
 
@@ -3541,7 +3548,7 @@ sub nic_sitelutions_update {
 ## nic_freedns_examples
 ######################################################################
 sub nic_freedns_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 
 o 'freedns'
 
@@ -3696,7 +3703,7 @@ sub nic_freedns_update {
 ## nic_changeip_examples
 ######################################################################
 sub nic_changeip_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 
 o 'changeip'
 
@@ -3768,7 +3775,7 @@ sub nic_changeip_update {
 ## nic_dtdns_examples
 ######################################################################
 sub nic_dtdns_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'dtdns'
                           
 The 'dtdns' protocol is the protocol used by the dynamic hostname services
@@ -3785,7 +3792,7 @@ Configuration variables applicable to the 'dtdns' protocol are:
 Example ${program}.conf file entries:
   ## single host update
   protocol=dtdns,                                       \\
-  password=my-dydns.za.net-password,                    \\
+  password=my_password,                                 \\
   client=ddclient                                       \\
   myhost.dtdns.net
                         
@@ -3836,7 +3843,7 @@ sub nic_dtdns_update {
             my @reply = split /\n/, $reply;
             my $returned = pop(@reply);
             $config{$h}{'status'} = 'failed';
-            failed("updating %s: Server said: '$returned'", $h);
+            failed("updating %s: Server said: '%s'", $h, $returned);
         }
     }
 }
@@ -3849,7 +3856,7 @@ sub nic_dtdns_update {
 ##
 ######################################################################
 sub nic_googledomains_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'googledomains'
 
 The 'googledomains' protocol is used by DNS service offered by www.google.com/domains.
@@ -3920,7 +3927,7 @@ sub nic_googledomains_update {
 ## nic_nsupdate_examples
 ######################################################################
 sub nic_nsupdate_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'nsupdate'
 
 The 'nsupdate' protocol is used to submit Dynamic DNS Update requests as
@@ -3981,6 +3988,8 @@ sub nic_nsupdate_update {
         my $binary  = $config{$h}{'login'};
         my $keyfile = $config{$h}{'password'};
         my $server  = $config{$h}{'server'};
+        ## nsupdate requires a port number to be separated by whitepace, not colon
+        $server =~ s/:/ /;
         my $zone    = $config{$h}{'zone'};
         my $ip      = $config{$h}{'wantip'};
         my $ipv6    = $config{$h}{'wantipv6'};
@@ -3995,17 +4004,17 @@ sub nic_nsupdate_update {
             verbose("UPDATE:", "updating %s", $hosts);
 
             ## send separate requests for each zone with all hosts in that zone
-            my $instructions = <<EoINSTR1;
+            my $instructions = <<"EoINSTR1";
 server $server
 zone $zone.
 EoINSTR1
             foreach (@hosts) {
-                $instructions .= <<EoINSTR2;
+                $instructions .= <<"EoINSTR2";
 update delete $_. A
 update add $_. $config{$_}{'ttl'} A $ip
 EoINSTR2
             }
-            $instructions .= <<EoINSTR3;
+            $instructions .= <<"EoINSTR3";
 send
 EoINSTR3
             my $command = "$binary -k $keyfile";
@@ -4032,17 +4041,17 @@ EoINSTR3
             verbose("UPDATE:", "updating %s", $hosts);
 
             ## send separate requests for each zone with all hosts in that zone
-            my $instructions = <<EoINSTR1;
+            my $instructions = <<"EoINSTR1";
 server $server
 zone $zone.
 EoINSTR1
             foreach (@hosts) {
-                $instructions .= <<EoINSTR2;
+                $instructions .= <<"EoINSTR2";
 update delete $_. AAAA
 update add $_. $config{$_}{'ttl'} AAAA $ipv6
 EoINSTR2
             }
-            $instructions .= <<EoINSTR3;
+            $instructions .= <<"EoINSTR3";
 send
 EoINSTR3
             my $command = "$binary -k $keyfile";
@@ -4077,20 +4086,20 @@ EoINSTR3
 ##
 ######################################################################
 sub nic_cloudflare_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'cloudflare'
 
 The 'cloudflare' protocol is used by DNS service offered by www.cloudflare.com.
 
 Configuration variables applicable to the 'cloudflare' protocol are:
   protocol=cloudflare          ## 
-  zone=Domain                  ## Root domain name of fully.qualified.host
-  login=Email                  ## Email address associated with your account
-  password=API_Key             ## API key generated on the "My Account" page
-  fully.qualified.host         ## Valid pre-existing A or AAAA record
+  server=fqdn.of.service       ## defaults to api.cloudflare.com/client/v4
+  login=service-login          ## login email when using a global API key
+  password=service-password    ## Global API key, or an API token. If using an API token, it must have the permissions "Zone - DNS - Edit" and "Zone - Zone - Read". The Zone resources must be "Include - All zones".
+  fully.qualified.host         ## the host registered with the service.
 
 Example ${program}.conf file entries:
-  ## single host update
+  ## single host update using a global API key
   protocol=cloudflare,                                         \\
   zone=example.com,                                            \\
   login=me\@example.com,                                        \\
@@ -4146,7 +4155,7 @@ sub nic_cloudflare_update {
                 failed("updating %s: No zone ID found.", $config{$key}{'zone'});
                 next;
             }
-            info("Zone ID: $zone_id");
+            info("Zone ID is %s", $zone_id);
 
             if (defined($ip)) {
                 info("setting IPv4 address to %s for %s", $ip, $domain);
@@ -4256,30 +4265,36 @@ sub nic_cloudflare_update {
 ##
 ######################################################################
 sub nic_duckdns_examples {
-    return <<EoEXAMPLE;
+    return <<"EoEXAMPLE";
 o 'duckdns'
 
 The 'duckdns' protocol is used by the free
-Dynamic DNS service offered by https://www.duckdns.org
+dynamic DNS service offered by www.duckdns.org.
+Check https://www.duckdns.org/install.jsp?tab=linux-cron for API
 
 Configuration variables applicable to the 'duckdns' protocol are:
   protocol=duckdns               ##
-  server=fqdn.of.service         ## defaults to www.duckdns.org
-  password=service-token         ## password (token) registered with the service
-  fully.qualified.host           ## the host.duckdns.org registered with the service.
+  server=www.fqdn.of.service   ## defaults to www.duckdns.org
+  password=service-password    ## password (token) registered with the service
+  non-fully.qualified.host         ## the host registered with the service.
 
 Example ${program}.conf file entries:
   ## single host update
   protocol=duckdns,                             \\
-  password=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee \\
-  myhost.duckdns.org
+  password=your_password,  \\
+  myhost
 
 EoEXAMPLE
 }
 
 ######################################################################
 ## nic_duckdns_update
-## DuckDNS API: https://www.duckdns.org/spec.jsp
+## by George Kranis (copypasta from nic_dtdns_update)
+## http://www.duckdns.org/update?domains=mydomain1,mydomain2&token=xxxx-xxx-xx-x&ip=x.x.x.x
+## response contains OK or KO
+##
+## IPv6 support added by astlinux-project
+##
 ######################################################################
 sub nic_duckdns_update {
     debug("\nnic_duckdns_update -------------------");
@@ -4368,7 +4383,7 @@ sub nic_duckdns_update {
 ##
 ######################################################################
 sub nic_he_examples {
-    return <<EoEXAMPLE;
+    return "<<EoEXAMPLE";
 o 'he'
 
 The 'he' protocol is the protocol used by the free dynamic
