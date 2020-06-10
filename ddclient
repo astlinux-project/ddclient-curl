@@ -345,6 +345,7 @@ my %variables = (
         'ipv6'        => setv(T_IPV6,   0, 0, 1, undef,    undef),
         'if'          => setv(T_IF,     0, 0, 1, 'ppp0',   undef),
         'if-skip'     => setv(T_STRING, 1, 0, 1, '',       undef),
+        'ifv6-skip'           => setv(T_STRING,1, 0, 1, '',                   undef),
         'web'         => setv(T_STRING, 0, 0, 1, 'dyndns', undef),
         'web-skip'    => setv(T_STRING, 1, 0, 1, '',       undef),
         'webv6'       => setv(T_STRING, 0, 0, 1, '',       undef),
@@ -390,6 +391,7 @@ my %variables = (
         'usev6'       => setv(T_USEV6,  0, 0, 1, undef,    undef),
         'if'          => setv(T_IF,     0, 0, 1, 'ppp0',   undef),
         'if-skip'     => setv(T_STRING, 0, 0, 1, '',       undef),
+        'ifv6-skip'           => setv(T_STRING,0, 0, 1, '',                   undef),
         'web'         => setv(T_STRING, 0, 0, 1, 'dyndns', undef),
         'web-skip'    => setv(T_STRING, 0, 0, 1, '',       undef),
         'webv6'       => setv(T_STRING, 0, 0, 1, '',       undef),
@@ -674,7 +676,8 @@ my @opt = (
     ["ipv6", "=s", "-ipv6 address         : set the IPv6 address to 'address'"],
     "",
     ["if",      "=s", "-if interface         : obtain IP address from 'interface'"],
-    ["if-skip", "=s", "-if-skip pattern      : skip any IP addresses before 'pattern' in the output of 'ip'"],
+    [ "if-skip",     "=s", "-if-skip pattern      : skip any IP addresses before 'pattern' in the output of ip or ifconfig {if}" ],
+    [ "ifv6-skip",   "=s", "-ifv6-skip pattern    : skip any IPv6 addresses before 'pattern' in the output of ip or ifconfig {if}" ],
     "",
     ["web",        "=s", "-web provider|url     : obtain IP address from provider's IP checking page"],
     ["web-skip",   "=s", "-web-skip pattern     : skip any IP addresses before 'pattern' on the web provider|url"],
@@ -2260,13 +2263,10 @@ sub get_ipv6 {
         $arg = 'ipv6';
 
     } elsif ($usev6 eq 'if') {
-        $skip = opt('if-skip', $h) || '';
-        $reply = `ip -6 -o addr show dev $arg scope global 2>/dev/null`;
-        if ($reply =~ /^.*? ([a-f0-9]{1,4}:[a-f0-9:]+:[a-f0-9]{1,4})\/.*/is) {
-            $reply = $1;
-        } else {
-            $reply = '';
-        }
+        $skip  = opt('ifv6-skip', $h)  || '';
+        $reply = `ip -6 -o addr show dev $arg scope global 2>/dev/null | grep -v "deprecated"`;
+        $reply = '' if $?;
+
     } elsif ($usev6 eq 'cmd') {
         $arg = opt('cmdv6', $h);
         if ($arg) {
@@ -2303,11 +2303,23 @@ sub get_ipv6 {
         $reply =~ s/^.*?${skip}//is;
     }
 
-    # Extract IPv6 address from the text
-    if ($reply =~ /(?i)(?<![:.\w])(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}(?![:.\w])/) {
-        $ipv6 = $&;
-    } elsif ($reply =~ /^.*?\b([a-f0-9]{1,4}:[a-f0-9:]+:[a-f0-9]{1,4})\b.*/is) {
-        $ipv6 = $1;
+    if ($usev6 eq 'if') {
+        # If we found the IPv6 address from a local interface then we
+        # filter for Global Unicast Address (GUA) as it would not be valid
+        # to try and update DNS with a link local or Unique Local (ULA) Address
+        if ($reply =~ /^.*? ([23][a-f0-9]{3}:[a-f0-9:]+:[a-f0-9]{1,4})[\/| ].*/is) {
+            $reply = $1;
+        } else {
+            $reply = '';
+        }
+    } else {
+        # We found IPv6 address from some method other than local interface
+        # so extract IPv6 address from the text
+        if ($reply =~ /(?i)(?<![:.\w])(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}(?![:.\w])/) {
+            $ipv6 = $&;
+        } elsif ($reply =~ /^.*?\b([a-f0-9]{1,4}:[a-f0-9:]+:[a-f0-9]{1,4})\b.*/is) {
+            $ipv6 = $1;
+        }
     }
 
     if (($usev6 ne 'ip') && (define($ipv6, '') eq '::')) {
