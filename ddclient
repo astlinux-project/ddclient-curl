@@ -1,7 +1,10 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 ######################################################################
 #
 # DDCLIENT - a Perl client for updating DynDNS information
+#
+# Author: Paul Burry (paul+ddclient@burry.ca)
+# ddclient developers: see https://github.com/orgs/ddclient/people
 #
 # ddclient-curl - Fork of ddclient using curl for network IO
 # Author: David Kerr, et al.
@@ -21,6 +24,7 @@
 ######################################################################
 require v5.8.0;
 use strict;
+use warnings;
 use Getopt::Long;
 use Sys::Hostname;
 
@@ -543,7 +547,6 @@ my %services = (
         'variables'  => merge(
             {'custom' => setv(T_BOOL,   0, 1, 1, 0,             undef),},
             {'script' => setv(T_STRING, 1, 1, 1, '/nic/update', undef),},
-#           {'offline' => setv(T_BOOL,  0, 1, 1, 0,             undef),},
             $variables{'dyndns-common-defaults'},
             $variables{'service-common-defaults'},
         ),
@@ -821,7 +824,7 @@ my @opt = (
     ["retry",    "!",  "-{no}retry            : retry failed updates."],
     ["force",    "!",  "-{no}force            : force an update even if the update may be unnecessary"],
     ["timeout",  "=i", "-timeout max          : wait at most 'max' seconds for the host to respond"],
-    ["max-warn", "=i", "-max-warn max         : maximum nubmer of warning messages for undefined IP address"],
+    [ "max-warn",    "=i", "-max-warn max         : maximum number of warning messages for undefined IP address"],
 
     ["syslog",       "!",  "-{no}syslog           : log messages to syslog"],
     ["facility",     "=s", "-facility {type}      : log messages to syslog to facility {type}"],
@@ -856,7 +859,6 @@ my $inv_ip_warn_count = define(opt('max-warn'), 1);
 
 test_geturl(opt('geturl')) if opt('geturl');
 
-## process help option
 if (opt('help')) {
     *STDERR = *STDOUT;
     usage(0);
@@ -919,8 +921,7 @@ do {
     read_cache(opt('cache'), \%cache);
     print_info() if opt('debug') && opt('verbose');
 
-#   usage("invalid argument '-use %s'; possible values are:\n\t%s", $opt{'use'}, join("\n\t,",sort keys %ip_strategies))
-    usage("invalid argument '-use %s'; possible values are:\n%s", $opt{'use'}, join("\n", ip_strategies_usage()))
+    fatal("invalid argument '-use %s'; possible values are:\n%s", $opt{'use'}, join("\n", ip_strategies_usage()))
       unless exists $ip_strategies{lc opt('use')};
     if (defined($opt{'usev6'})) {
         usage("invalid argument '-usev6 %s'; possible values are:\n%s", $opt{'usev6'}, join("\n", ipv6_strategies_usage()))
@@ -1160,14 +1161,13 @@ sub read_cache {
 ## parse_assignment(string)  return (name, value, rest)
 ######################################################################
 sub parse_assignments {
-    my $rest      = shift;
-    my @args      = @_;
+    my ($rest) = @_;
     my %variables = ();
     my ($name, $value);
 
     while (1) {
         $rest =~ s/^\s+//;
-        ($name, $value, $rest) = parse_assignment($rest, @args);
+        ($name, $value, $rest) = parse_assignment($rest);
         if (defined $name) {
             $variables{$name} = $value;
         } else {
@@ -1178,8 +1178,7 @@ sub parse_assignments {
 }
 
 sub parse_assignment {
-    my $rest = shift;
-    my $stop = @_ ? shift : '[\n\s,]';
+    my ($rest) = @_;
     my ($c, $name, $value);
     my ($escape, $quote) = (0, '');
 
@@ -1197,7 +1196,7 @@ sub parse_assignment {
                 $quote = '';
             } elsif (!$quote && $c =~ /[\'\"]/) {
                 $quote = $c;
-            } elsif (!$quote && $c =~ /^${stop}/) {
+            } elsif (!$quote && $c =~ /^[\n\s,]/) {
                 last;
             } else {
                 $value .= $c;
@@ -1211,28 +1210,53 @@ sub parse_assignment {
 ## read_config
 ######################################################################
 sub read_config {
-    my $file    = shift;
-    my $config  = shift;
-    my $globals = shift;
-    my %globals = ();
-
-    _read_config($config, $globals, '', $file, %globals);
+    my ($file, $config, $globals) = @_;
+    _read_config($config, $globals, '', $file);
 }
-
 sub _read_config {
+    # Configuration line format after comment and continuation
+    # removal:
+    #
+    #   [opt=value, ...] [host[, ...] [login [password]]]
+    #
+    # Details:
+    #   - No whitespace is allowed around the '=' in opt=value.
+    #   - An option name may only contain lowercase letters, numbers,
+    #     underscore, and hyphen-minus, and must start with a letter.
+    #   - A value or hostname is terminated by unquoted whitespace
+    #     (including newline) or an unquoted comma followed by
+    #     optional whitespace.
+    #   - Values (but not hosts, login, or password) may contain
+    #     quoted parts:
+    #       - A backslash that itself is not quoted by another
+    #         backslash quotes the next character.
+    #       - An unquoted single quote quotes the subsequent
+    #         non-backslash, non-newline characters until the next
+    #         single quote.
+    #       - An unquoted double quote quotes the subsequent
+    #         non-backslash, non-newline characters until the next
+    #         double quote.
+    #   - login and password must not contain whitespace.
+    #   - login must not start or end with a comma.
+    #   - password must not start with a comma.
+    #   - If no host is specified (either via a 'host=' option or
+    #     after the options), the options are stored in %{$2}.
+    #     Otherwise, the options are combined with the global values
+    #     accumulated thus far and stored in $1->{$host} for each
+    #     referenced host.
+
     my $config  = shift;
     my $globals = shift;
     my $stamp   = shift;
     local $file = shift;
-    my %globals = @_;
+    my %globals = ();
     my %config  = ();
     my $content = '';
 
     local *FD;
     if (!open(FD, "< $file")) {
 
-        # fatal("Cannot open file '%s'. ($!)", $file);
-        warning("Cannot open file '%s'. ($!)", $file);
+        warning("Cannot open file '%s'. (%s)", $file, $!);
     }
 
     # Check for only owner has any access to config file
@@ -1290,8 +1314,6 @@ sub _read_config {
         s/\s+/ /g;    # canonify
         next if /^$/;
 
-        ## expected configuration line is:
-        ##   [opt=value,opt=..] [host [login [password]]]
         my %locals;
         ($_, %locals) = parse_assignments($_);
         s/\s*,\s*/,/g;
@@ -1793,11 +1815,14 @@ sub sendmail {
         $recipients = opt('mail-failure');
     }
     if ($msgs && $recipients && $msgs ne $last_msgs) {
-        pipecmd(
-            "sendmail -oi $recipients",
+        pipecmd("sendmail -oi $recipients",
             "To: $recipients",
             "Subject: status report from $program\@$hostname",
-            "\r\n", $msgs, "", "regards,", "   $program\@$hostname (version $version)"
+                "\r\n",
+                $msgs,
+                "",
+                "regards,",
+                "   $program\@$hostname (version $version)"
         );
     }
     $last_msgs = $msgs;
@@ -2040,9 +2065,6 @@ sub check_value {
     } elsif ($type eq T_LOGIN) {
         return undef if $value eq "";
 
-#   } elsif ($type eq T_PASSWD) {
-#       return undef if $value =~ /:/;
-
     } elsif ($type eq T_IP) {
         return undef if $value !~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
@@ -2075,11 +2097,12 @@ sub encode_base64 ($;$) {
 ## load_sha1_support
 ######################################################################
 sub load_sha1_support {
+    my $why         = shift;
     my $sha1_loaded = eval {require Digest::SHA1};
     my $sha_loaded  = eval {require Digest::SHA};
     unless ($sha1_loaded || $sha_loaded) {
-        fatal(<<"EOM");
-Error loading the Perl module Digest::SHA1 or Digest::SHA needed for freedns update.
+        fatal("%s", <<"EOM");
+Error loading the Perl module Digest::SHA1 or Digest::SHA needed for $why update.
 On Debian, the package libdigest-sha1-perl or libdigest-sha-perl must be installed.
 EOM
     }
@@ -2117,9 +2140,6 @@ sub geturl {
     my ($reply, $server, $default_port, $use_ssl);
     my $is_get_ip = ((caller(1))[3] eq 'main::get_ip') || ((caller(1))[3] eq 'main::get_ipv6');
 
-    debug("proxy  = $proxy");
-    debug("url    = %s", $url);
-    debug("ip ver = %s", $ipversion);
     ## canonify proxy and url
     my $force_ssl;
     $force_ssl = 1 if ($url =~ /^https:/);
@@ -2130,11 +2150,9 @@ sub geturl {
     $url = "/" unless $url =~ m%/%;
     $url =~ s%^[^/]*/%%;
 
-    debug("server = $server");
-    opt('fw') && debug("opt(fw = ", opt('fw'), ")");
-    $globals{'fw'} && debug("glo fw = $globals{'fw'}");
+    opt('fw') && debug("opt(fw = %s)", opt('fw'));
+    $globals{'fw'} && debug("glo fw = %s", $globals{'fw'});
 
-    #if ( $globals{'ssl'} and $server ne $globals{'fw'} )
     ## always omit SSL for connections to local router
     if ($force_ssl || ($globals{'ssl'} && !$is_get_ip)) {
         $use_ssl      = 1;
@@ -2143,6 +2161,11 @@ sub geturl {
         $use_ssl      = 0;
         $default_port = 80;
     }
+    debug("proxy    = %s", $proxy);
+    debug("protocol = %s", $use_ssl ? "https" : "http");
+    debug("server   = %s", $server);
+    debug("url      = %s", $url);
+    debug("ip ver   = %s", $ipversion);
 
     # Access network using cURL.
     if (!opt('exec')) {
@@ -2243,7 +2266,11 @@ sub filter_local {
         return $in_ip;
     }
 
-    my @guess_local = ('^10\.', '^172\.(?:1[6-9]|2[0-9]|3[01])\.', '^192\.168');
+    my @guess_local = (
+        '^10\.',
+        '^172\.(?:1[6-9]|2[0-9]|3[01])\.',
+        '^192\.168'
+    );
     foreach my $block (@guess_local) {
         if ($in_ip =~ /$block/) {
             return '0.0.0.0';
@@ -3430,9 +3457,6 @@ EoEXAMPLE
 ######################################################################
 sub nic_easydns_update {
     debug("\nnic_easydns_update -------------------");
-
-    ## group hosts with identical attributes together
-    ## my %groups = group_hosts_by([ @_ ], [ qw(login password server wildcard mx backupmx) ]);
 
     ## each host is in a group by itself
     my %groups = map {$_ => [$_]} @_;
