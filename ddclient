@@ -466,6 +466,12 @@ my %variables = (
     'cloudflare-common-defaults' => {
         'server' => setv(T_FQDNP, 1, 0, 1, 'api.cloudflare.com/client/v4', undef),
         'zone'   => setv(T_FQDN,  1, 0, 1, '',                             undef),
+        'login'               => setv(T_LOGIN,  0, 0, 1, 'token',             undef),
+        'static'              => setv(T_BOOL,   0, 1, 1, 0,                   undef),
+        'wildcard'            => setv(T_BOOL,   0, 1, 1, 0,                   undef),
+        'mx'                  => setv(T_OFQDN,  0, 1, 1, '',                  undef),
+        'backupmx'            => setv(T_BOOL,   0, 1, 1, 0,                   undef),
+        'ttl'                 => setv(T_NUMBER, 1, 0, 1, 1,                   undef),
     },
     'googledomains-common-defaults' => {
         'server' => setv(T_FQDNP, 1, 0, 1, 'domains.google.com', undef),
@@ -669,6 +675,7 @@ my %services = (
         'update'     => \&nic_cloudflare_update,
         'examples'   => \&nic_cloudflare_examples,
         'variables'  => merge(
+            { 'server'       => setv(T_FQDNP, 1, 0, 1, 'api.cloudflare.com/client/v4', undef) },
             {'min-interval' => setv(T_DELAY, 0, 0, 1, interval('5m'), 0),},
             $variables{'cloudflare-common-defaults'},
             $variables{'service-common-defaults'},
@@ -4444,10 +4451,23 @@ Configuration variables applicable to the 'cloudflare' protocol are:
 Example ${program}.conf file entries:
   ## single host update using a global API key
   protocol=cloudflare,                                         \\
-  zone=example.com,                                            \\
-  login=me\@example.com,                                        \\
-  password=Hex_Char_API_Key                                    \\
-  myhost.example.com 
+  zone=dns.zone,                                               \\
+  login=my-cloudflare.com-login,                               \\
+  password=my-cloudflare-global-key                            \\
+  myhost.com
+
+  ## single host update using an API token
+  protocol=cloudflare,                                         \\
+  zone=dns.zone,                                               \\
+  password=cloudflare-api-token                                \\
+  myhost.com
+
+  ## multiple host update to the custom DNS service
+  protocol=cloudflare,                                         \\
+  zone=dns.zone,                                               \\
+  login=my-cloudflare.com-login,                               \\
+  password=my-cloudflare-global-api-key                        \\
+  my-toplevel-domain.com,my-other-domain.com
 EoEXAMPLE
 }
 ######################################################################
@@ -4457,7 +4477,7 @@ sub nic_cloudflare_update {
     debug("\nnic_cloudflare_update -------------------");
 
     ## group hosts with identical attributes together
-    my %groups = group_hosts_by([@_], [qw(server login password zone)]);
+    my %groups = group_hosts_by([ @_ ], [ qw(ssh login password server wildcard mx backupmx zone) ]);
 
     ## update each set of hosts that had similar configurations
     foreach my $sig (keys %groups) {
@@ -4465,9 +4485,13 @@ sub nic_cloudflare_update {
         my $hosts = join(',', @hosts);
         my $key   = $hosts[0];
 
-        my $headers = "X-Auth-Email: $config{$key}{'login'}\n";
+        my $headers = "Content-Type: application/json\n";
+        if ($config{$key}{'login'} eq 'token') {
+            $headers .= "Authorization: Bearer $config{$key}{'password'}\n";
+        } else {
+            $headers .= "X-Auth-Email: $config{$key}{'login'}\n";
         $headers .= "X-Auth-Key: $config{$key}{'password'}\n";
-        $headers .= "Content-Type: application/json";
+        }
 
         # FQDNs
         for my $domain (@hosts) {
