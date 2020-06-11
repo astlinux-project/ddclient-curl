@@ -4884,7 +4884,7 @@ sub nic_duckdns_update {
 ##
 ######################################################################
 sub nic_he_examples {
-    return "<<EoEXAMPLE";
+    return <<"EoEXAMPLE";
 o 'he'
 
 The 'he' protocol is the protocol used by the free dynamic
