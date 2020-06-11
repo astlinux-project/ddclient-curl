@@ -2766,6 +2766,13 @@ sub nic_updateable {
 
     return $update;
 }
+######################################################################
+## header_ok
+## Always return true as we use CURL that will handle an error condition
+######################################################################
+sub header_ok {
+    return 1;
+}
 
 ######################################################################
 ## nic_dyndns1_examples
