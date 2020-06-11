@@ -2407,7 +2407,7 @@ sub get_ipv6 {
 
     } elsif ($usev6 eq 'if') {
         $skip  = opt('ifv6-skip', $h)  || '';
-        $reply = `ip -6 -o addr show dev $arg scope global 2>/dev/null | grep -v "deprecated"`;
+        $reply = `ip -6 -o addr show dev $arg scope global 2>/dev/null | grep -v "deprecated" | grep -v "temporary"`;
         $reply = '' if $?;
 
     } elsif ($usev6 eq 'cmd') {
