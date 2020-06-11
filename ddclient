@@ -2490,6 +2490,34 @@ sub group_hosts_by {
     return %groups;
 }
 ######################################################################
+## encode_www_form_urlencoded
+######################################################################
+sub encode_www_form_urlencoded {
+    my $formdata = shift;
+
+    my $must_encode = qr'[<>"#%{}|\\^~\[\]`;/?:=&+]';
+    my $encoded;
+    my $i = 0;
+    foreach my $k (keys %$formdata) {
+        my $kenc = $k;
+        my $venc = $formdata->{$k};
+
+        $kenc =~ s/($must_encode)/sprintf('%%%02X', ord($1))/ge;
+        $venc =~ s/($must_encode)/sprintf('%%%02X', ord($1))/ge;
+
+        $kenc =~ s/ /+/g;
+        $venc =~ s/ /+/g;
+
+        $encoded .= $kenc . '=' . $venc;
+        if ($i < (keys %$formdata) - 1) {
+            $encoded .= '&';
+        }
+        $i++;
+    }
+
+    return $encoded;
+}
+######################################################################
 ## nic_examples
 ######################################################################
 sub nic_examples {
