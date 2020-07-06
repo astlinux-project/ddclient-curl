@@ -2067,7 +2067,7 @@ sub geturl {
         my @curlopt = ();
         push(@curlopt, "silent\n");
         push(@curlopt, "request=${method}\n");
-        push(@curlopt, "insecure\n") if (($use_ssl) && ($ipversion ne ''));  ## this should really be a user option
+        push(@curlopt, "insecure\n") if ($use_ssl && $is_get_ip);  ## this should really be a user option
         push(@curlopt, "ipv4\n") if ($ipversion eq '4');
         push(@curlopt, "ipv6\n") if ($ipversion eq '6');
         push(@curlopt, "user-agent=\"${program}/${version}\"\n");
