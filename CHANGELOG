@@ -1,5 +1,10 @@
-Version 3.8.3-06-devel (August 12, 2017)
-----------------------------------------
+Version 3.8.3-06 (July 6, 2020)
+-------------------------------
++ curl, pass options via a file instead of the command line.
++ Always verify HTTPS certificates, (except for getting an IP using 'web').
++ When 'usev6=if' for IPv6, only select a GUA. Thanks to Dirk Schneider.
++ Fix Cloudflare, duckdns and he services to permit multiple different
+    IPv6 addresses in the same conf file. Thanks to David Kerr.
 
 Version 3.8.3-05 (August 12, 2017)
 ----------------------------------
