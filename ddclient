@@ -2060,47 +2060,46 @@ sub geturl {
     if (!opt('exec')) {
         debug("skipped network connection");
         verbose("SENDING:", "%s", "${server}/${url}");
-    } elsif (($headers ne '')) {
-        my $timeout    = opt('timeout');
-        my @head_lines = split('\n', $headers);
-        my $head_args  = '';
-        foreach my $head_line (@head_lines) {
-            $head_args .= "-H '$head_line' ";
-        }
-
-        $0 = sprintf("%s - curl (w/headers) sending to %s", $program, "https://${server}");
-
-        $reply = <<`USE_CURL_WITH_HEADERS`;
-/usr/bin/curl -s -X $method --user-agent '${program}/${version}' \\
-              --connect-timeout $timeout --max-time $timeout \\
-              ${head_args} \\
-              --data '${data}' \\
-              --url 'https://${server}/${url}' 2>/dev/null
-USE_CURL_WITH_HEADERS
-
-        if (!$reply) {
-            warning("curl (w/headers) cannot connect to https://${server}");
-        }
     } else {
         my $timeout  = opt('timeout');
-        my $auth     = '';
-        my $curlopt  = '';
-        my $protocol = 'http';
-        $auth    = "--user '${login}:${password}'" if (($login ne '') && ($password ne ''));
-        $curlopt = '--ipv4'                        if ($ipversion eq '4');
-        $curlopt = '--ipv6'                        if ($ipversion eq '6');
-        if ($use_ssl) {
-            $protocol = 'https';
-            $curlopt .= ' --insecure';
+        my $protocol = ($use_ssl ? 'https' : 'http');
+
+        my @curlopt = ();
+        push(@curlopt, "silent\n");
+        push(@curlopt, "request=${method}\n");
+        push(@curlopt, "insecure\n") if (($use_ssl) && ($ipversion ne ''));  ## this should really be a user option
+        push(@curlopt, "ipv4\n") if ($ipversion eq '4');
+        push(@curlopt, "ipv6\n") if ($ipversion eq '6');
+        push(@curlopt, "user-agent=\"${program}/${version}\"\n");
+        push(@curlopt, "user=${login}:${password}\n") if (($login ne '') && ($password ne ''));
+        push(@curlopt, "connect-timeout=${timeout}\n");
+        push(@curlopt, "max-time=${timeout}\n");
+        push(@curlopt, "url=\"${protocol}://${server}/${url}\"\n");
+        if ($data ne '') {
+            $data =~ s/"/\\"/g;  ## Escape double-quotes
+            push(@curlopt, "data=\"${data}\"\n");
         }
+        if ($headers ne '') {
+            my @head_lines = split('\n', $headers);
+            foreach my $head_line (@head_lines) {
+                $head_line =~ s/"/\\"/g;  ## Escape double-quotes
+                push(@curlopt, "header=\"${head_line}\"\n");
+            }
+        }
+
+        my @chars = ('A'..'Z', 'a'..'z', '0'..'9');
+        my $curlopt_file = '/tmp/ddclient_curlopt_';
+        $curlopt_file .= $chars[rand @chars] for 1..10;
+
+        open(my $cfh, '>', $curlopt_file) or fatal("Falied to open $curlopt_file for curl");
+        chmod(0600, $curlopt_file);
+        print $cfh @curlopt;
+        close($cfh);
 
         $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}");
 
-        $reply = <<`USE_CURL`;
-/usr/bin/curl -s ${auth} --user-agent '${program}/${version}' \\
-              --connect-timeout $timeout --max-time $timeout $curlopt \\
-              --url '${protocol}://${server}/${url}' 2>/dev/null
-USE_CURL
+        $reply = qx{ /usr/bin/curl --config $curlopt_file 2>/dev/null };
+        unlink $curlopt_file;
 
         if (!$reply) {
             warning("curl cannot connect to ${protocol}://${server}");
