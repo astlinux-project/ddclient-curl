@@ -2098,8 +2098,7 @@ sub geturl {
 
         $0 = sprintf("%s - curl sending to %s", $program, "${protocol}://${server}");
 
-        $reply = qx{ /usr/bin/curl --config $curlopt_file 2>/dev/null };
-        unlink $curlopt_file;
+        $reply = qx{ /usr/bin/curl --config '$curlopt_file' 2>/dev/null ; rm -f '$curlopt_file' };
 
         if (!$reply) {
             warning("curl cannot connect to ${protocol}://${server}");
