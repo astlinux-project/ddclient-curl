@@ -1,3 +1,8 @@
+Version 3.8.3-07 (July 7, 2020)
+-------------------------------
++ Delete the temporary curl config file in the same subshell which called curl.
+    This makes sure the file is deleted with INT and KILL signals to ddclient.
+
 Version 3.8.3-06 (July 6, 2020)
 -------------------------------
 + curl, pass options via a file instead of the command line.
