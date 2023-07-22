@@ -1,3 +1,7 @@
+Version 3.8.3-08 (July 22, 2023)
+-------------------------------
++ Add IPv64 Free DNS protocol 'ipv64', supporting both IPv4 and IPv6
+
 Version 3.8.3-07 (July 7, 2020)
 -------------------------------
 + Delete the temporary curl config file in the same subshell which called curl.
